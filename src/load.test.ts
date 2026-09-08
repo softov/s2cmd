@@ -108,3 +108,22 @@ it("merges imported config schemas by key and replaces an overridden field whole
     timeout: { type: "integer", minimum: 10 },
   });
 });
+
+
+it("merges HTTP headers across imports case-insensitively with the document winning", () => {
+  const files: Record<string, string> = {
+    "/doc/base.json": JSON.stringify({ defaults: { http: { headers: {
+      "PRIVATE-TOKEN": "base", Accept: "application/json", "X-Kept": "yes",
+      "X-Conditional": { when: "$env.OLD", value: "old" },
+    } } } }),
+    "/doc/over.json": JSON.stringify({ defaults: { http: { headers: { "private-token": "import" } } } }),
+    "/doc/main.json": JSON.stringify({ imports: ["base.json", "over.json"], defaults: { http: { headers: {
+      "PRIVATE-TOKEN": "document", "X-Conditional": { when: "$env.NEW", value: "new" },
+    } } } }),
+  };
+  const result = loadDocument("/doc/main.json", { readFile: (path) => files[path]!, environment: {} });
+  expect(result.document["defaults"]).toEqual({ http: { headers: {
+    "private-token": "document", accept: "application/json", "x-kept": "yes",
+    "x-conditional": { when: "$env.NEW", value: "new" },
+  } } });
+});

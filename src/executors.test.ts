@@ -384,3 +384,70 @@ describe("interpolation", () => {
     expect(JSON.parse((result?.data as { stdout: string }).stdout)).toEqual(["name=Ada", "name=Byte"]);
   });
 });
+
+
+describe("HTTP defaults", () => {
+  function setup(step: Record<string, unknown>, name = "http", defaults: unknown = {
+    http: { headers: { "PRIVATE-TOKEN": "{$env.TOKEN}", Accept: "application/json" } },
+  }) {
+    const seen: Headers[] = [];
+    const registry = registryOf({ defaults, commands: {
+      request: { summary: "Request", input: { token: { type: "string" } }, run: {
+        [name]: { method: "GET", endpoint: "https://example.com/", ...step },
+      } },
+    } }, {
+      environment: { TOKEN: "default-token" },
+      fetch: (async (_url, init) => {
+        seen.push(new Headers(init?.headers));
+        return new Response('{}', { headers: { "content-type": "application/json" } });
+      }) as typeof fetch,
+    });
+    return { registry, seen };
+  }
+
+  it.each(["http", "rest"])("inherits headers for %s", async (name) => {
+    const { registry, seen } = setup({}, name);
+    await run(registry, "request");
+    expect(seen[0]!.get("PRIVATE-TOKEN")).toBe("default-token");
+    expect(seen[0]!.get("Accept")).toBe("application/json");
+  });
+
+  it("overrides individual headers case-insensitively and resolves values on each run", async () => {
+    const { registry, seen } = setup({ headers: { "private-token": "{token}", "X-Extra": "yes" } });
+    await run(registry, "request", { token: "first" });
+    await run(registry, "request", { token: "second" });
+    expect(seen[0]!.get("PRIVATE-TOKEN")).toBe("first");
+    expect(seen[1]!.get("PRIVATE-TOKEN")).toBe("second");
+    expect(seen[0]!.get("Accept")).toBe("application/json");
+    expect(seen[0]!.get("X-Extra")).toBe("yes");
+  });
+
+  it("disables inherited headers without resolving their missing values", async () => {
+    const { registry, seen } = setup({ inheritHeaders: false, headers: { "X-Own": "kept" } }, "http", {
+      http: { headers: { "PRIVATE-TOKEN": "{$env.MISSING}" } },
+    });
+    await run(registry, "request");
+    expect(seen[0]!.has("PRIVATE-TOKEN")).toBe(false);
+    expect(seen[0]!.get("X-Own")).toBe("kept");
+  });
+
+  it("does not apply HTTP headers to other executors", async () => {
+    const registry = registryOf({ defaults: { http: { headers: { "X-Token": "{$env.MISSING}" } } },
+      commands: { skip: { summary: "Skip", run: "noop" } } });
+    expect((await run(registry, "skip"))?.data).toBeNull();
+  });
+
+  it.each([
+    { rest: { headers: {} } },
+    { http: { header: {} } },
+    { http: { headers: [] } },
+    { http: { headers: { "bad name": "value" } } },
+    { http: { headers: { "X-Test": "{unknown}" } } },
+  ])("rejects malformed defaults", (defaults) => {
+    expect(() => setup({}, "http", defaults)).toThrow();
+  });
+
+  it("rejects a non-boolean inheritance switch", () => {
+    expect(() => setup({ inheritHeaders: "false" })).toThrow("must be a boolean");
+  });
+});

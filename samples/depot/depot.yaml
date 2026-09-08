@@ -44,7 +44,7 @@ commands:
       http: { method: GET, path: /pets }
       mcp: true
     run:
-      rest:
+      http:
         method: GET
         endpoint: "{$config.api}/pets"
         query:
@@ -78,7 +78,7 @@ commands:
       http: { method: POST, path: /pets }
       mcp: true
     run:
-      rest:
+      http:
         method: POST
         endpoint: "{$config.api}/pets"
         body:
@@ -142,7 +142,7 @@ commands:
             - "{env}"
             - "{$env.RELEASE_CHANNEL}"
             - { when: force, value: "--force" }
-      - rest:
+      - http:
           method: POST
           endpoint: "{$config.hooks.deployed}"
           body:

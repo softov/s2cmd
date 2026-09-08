@@ -28,7 +28,7 @@ The sample's pet and deployment commands call the facio petshop example on port 
 
 ## Command documents
 
-Documents declare `commands`, their input schemas, surfaces and execution steps. Supported executors are `noop`, `internal` (another registered command), `exec` (a process), and `rest` (an HTTP request). Steps run in order and stop at the first failure.
+Documents declare `commands`, their input schemas, surfaces and execution steps. Supported executors are `noop`, `internal` (another registered command), `exec` (a process), and `http` (an HTTP request; `rest` remains an alias). Steps run in order and stop at the first failure.
 
 `imports` composes documents and `env` loads environment files. Paths resolve relative to the document. See `samples/depot/depot.yaml` for a complete example.
 
@@ -72,3 +72,39 @@ npm run dev -- --document samples/gitlab/gitlab.yaml config
 Each key is a simple top-level name. Types are string, number, integer, boolean, array, or object. Arrays and objects take JSON text; object properties must be declared. Numeric bounds, string length/pattern, enums, constants, and URI/date-time formats are validated. Imported schemas merge by setting name; a later declaration replaces that setting’s whole schema. Schema defaults sit below the document's `config` values and external configuration layers. This declaration controls setting values; existing configuration files are not retroactively validated.
 
 The writer updates the highest-priority file already loaded: explicit `--config`, program configuration environment variable, project file, then user file. If none exists, it creates `.<program>.json` in the working directory (`.gitlab.json` for GitLab). Explicit files must already exist. Only the selected key is changed; unrelated values are preserved, and defaults are not copied into the file. YAML files are rewritten as YAML with flow values; comments and original formatting are not preserved. Writes replace the file atomically; the next invocation reads the saved value.
+
+## HTTP defaults
+
+Share HTTP headers across a document:
+
+```yaml
+defaults:
+  http:
+    headers:
+      PRIVATE-TOKEN: "{$env.GITLAB_TOKEN}"
+      Accept: application/json
+
+commands:
+  me:
+    summary: Read the authenticated user
+    run:
+      http:
+        method: GET
+        endpoint: "{$config.api}/user"
+```
+
+`http` is the canonical executor name; existing `rest` steps use the same executor and `defaults.http`. Defaults currently support HTTP headers only. Header names merge case-insensitively, and a step's value replaces the corresponding default. Placeholders are evaluated when that step runs. Imports merge defaults, with later imports and the importing document winning.
+
+For a request to another service, omit shared credentials explicitly:
+
+```yaml
+run:
+  http:
+    method: GET
+    endpoint: https://example.com/status
+    inheritHeaders: false
+    headers:
+      Accept: application/json
+```
+
+`inheritHeaders: false` removes all document-default headers for that step while retaining its own headers. Defaults do not apply to other executors.

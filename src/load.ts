@@ -143,11 +143,36 @@ function merge(base: Record<string, unknown>, over: Record<string, unknown>): Re
   const out: Record<string, unknown> = { ...base };
   for (const [key, value] of Object.entries(over)) {
     if (key === "imports" || key === "env") continue;
+    if (key === "defaults") {
+      out[key] = mergeDefaults(base[key], value);
+      continue;
+    }
     out[key] = key === "config" || key === "commands" || key === "configSchema"
       ? mergeMaps(base[key], value, key === "config")
       : value;
   }
   return out;
+}
+
+/** Normalize each layer before merging; later spelling wins even across three imports. */
+function normalizeDefaults(raw: unknown): unknown {
+  if (!isPlain(raw) || !isPlain(raw["http"]) || !isPlain(raw["http"]["headers"])) return raw;
+  return { ...raw, http: { ...raw["http"], headers: Object.fromEntries(
+    Object.entries(raw["http"]["headers"]).map(([name, value]) => [name.toLowerCase(), value]),
+  ) } };
+}
+
+function mergeDefaults(base: unknown, over: unknown): unknown {
+  const lower = normalizeDefaults(base);
+  const upper = normalizeDefaults(over);
+  const merged = mergeMaps(lower, upper, true);
+  if (isPlain(lower) && isPlain(upper) && isPlain(merged)
+    && isPlain(lower["http"]) && isPlain(upper["http"]) && isPlain(merged["http"])) {
+    if (Object.hasOwn(upper["http"], "headers")) {
+      merged["http"]["headers"] = mergeMaps(lower["http"]["headers"], upper["http"]["headers"], false);
+    }
+  }
+  return merged;
 }
 
 function mergeMaps(base: unknown, over: unknown, deep: boolean): unknown {

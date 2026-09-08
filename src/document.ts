@@ -42,7 +42,7 @@ const SCHEMA_KEYS = [
 
 const TYPES = ["string", "number", "integer", "boolean", "array", "object"] as const;
 
-const DOCUMENT_KEYS = ["name", "version", "description", "config", "configSchema", "commands"] as const;
+const DOCUMENT_KEYS = ["name", "version", "description", "config", "configSchema", "defaults", "commands"] as const;
 
 const COMMAND_KEYS = [
   "summary", "description", "group", "input", "required",
@@ -294,7 +294,8 @@ export function commandsFromDocument(raw: unknown, options: ReadOptions = {}): C
   configSchemaOf(document);
 
   const config = options.config ?? configOf(document);
-  const executors = options.executors ?? defaultExecutors(options);
+  const builtins = defaultExecutors(options, document["defaults"]);
+  const executors = options.executors ?? builtins;
   const environment = options.environment ?? process.env;
 
   const commands = asMap(document["commands"] ?? {}, "commands");

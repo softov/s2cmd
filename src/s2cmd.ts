@@ -22,7 +22,7 @@ import { createDocumentServer } from "./serve.js";
  *
  * One thing the document adds, because a file cannot hold a function: `run` is
  * a list of steps naming registered executors - `noop`, `internal`, `exec` and
- * `rest` - and everything that can be wrong with one is a startup error.
+ * `http` - and everything that can be wrong with one is a startup error.
  *
  * The safety rule is the reason this is a front end rather than a feature. A
  * document is a file anybody can edit, so a command holding an `exec` step

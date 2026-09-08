@@ -338,12 +338,29 @@ function execExecutor(options: ExecutorOptions): Executor {
 }
 
 /* -------------------------------------------------------------------------- */
-/* rest                                                                       */
+/* http                                                                       */
 /* -------------------------------------------------------------------------- */
+
+/** Normalize names before merging so a differently cased override replaces its default. */
+function headerMap(raw: unknown, where: string): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(asMap(raw, where)).map(([name, value]) => {
+    // Let the platform validate header names without evaluating any value placeholders.
+    new Headers({ [name]: "" });
+    return [name.toLowerCase(), value];
+  }));
+}
+
+function httpHeadersFrom(raw: unknown): Record<string, unknown> {
+  const defaults = asMap(raw, "defaults");
+  only(defaults, ["http"], "defaults");
+  const http = asMap(defaults["http"], "defaults.http");
+  only(http, ["headers"], "defaults.http");
+  return headerMap(http["headers"], "defaults.http.headers");
+}
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 
-interface RestStep {
+interface HttpStep {
   method: HttpBinding["method"];
   endpoint: Argument;
   query: Record<string, Argument>;
@@ -359,12 +376,20 @@ interface RestStep {
  * and the exit code each of those becomes. A document naming a URL should reach
  * exactly the same behaviour a manifest-driven command does.
  */
-function restExecutor(options: ExecutorOptions): Executor {
-  return executor<RestStep>({
+function httpExecutor(options: ExecutorOptions, defaults: Record<string, unknown>): Executor {
+  return executor<HttpStep>({
     remoteSafe: true,
     prepare(raw, context) {
       const step = asMap(raw, context.where);
-      only(step, ["method", "endpoint", "query", "body", "headers"], context.where);
+      only(step, ["method", "endpoint", "query", "body", "headers", "inheritHeaders"], context.where);
+
+      if (step["inheritHeaders"] !== undefined && typeof step["inheritHeaders"] !== "boolean") {
+        throw new Error(`${context.where}.inheritHeaders must be a boolean`);
+      }
+      const headers = {
+        ...(step["inheritHeaders"] === false ? {} : defaults),
+        ...headerMap(step["headers"], `${context.where}.headers`),
+      };
 
       const method = String(required(step, "method", context.where)).toUpperCase();
       if (!(METHODS as readonly string[]).includes(method)) {
@@ -394,7 +419,7 @@ function restExecutor(options: ExecutorOptions): Executor {
         endpoint,
         query,
         body,
-        headers: asArgumentMap(step["headers"], `${context.where}.headers`, context.fields),
+        headers: asArgumentMap(headers, `${context.where}.headers`, context.fields),
       };
     },
     async run(step, context) {
@@ -443,14 +468,16 @@ function isAbsolute(endpoint: string): boolean {
 /**
  * The executors a document may name.
  *
- * A closed set, so an unknown name is a registration error with the four
+ * A closed set, so an unknown name is a registration error with the available names
  * written out rather than a command that fails the first time somebody runs it.
  */
-export function defaultExecutors(options: ExecutorOptions = {}): Record<string, Executor> {
+export function defaultExecutors(options: ExecutorOptions = {}, defaults?: unknown): Record<string, Executor> {
+  const http = httpExecutor(options, httpHeadersFrom(defaults));
   return {
     noop,
     internal: internalExecutor(options),
     exec: execExecutor(options),
-    rest: restExecutor(options),
+    http,
+    rest: http, // Compatibility alias; both names share defaults.http.
   };
 }

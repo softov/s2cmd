@@ -1,4 +1,4 @@
-# REST mappings based on service_tasker/packages/gitlab/src/{client,store}.ts.
+# HTTP mappings based on service_tasker/packages/gitlab/src/{client,store}.ts.
 name: "gitlab"
 version: "0.1.0"
 description: "GitLab API actions declared as data"
@@ -11,6 +11,11 @@ configSchema:
     pattern: "^https?://"
     description: GitLab API endpoint including /api/v4
     default: https://gitlab.com/api/v4
+defaults:
+  http:
+    headers:
+      PRIVATE-TOKEN: "{$env.GITLAB_TOKEN}"
+      Accept: application/json
 commands:
   me:
     summary: "Read the authenticated user"
@@ -20,12 +25,9 @@ commands:
         pattern: ["me"]
       mcp: true
     run:
-      rest:
+      http:
         method: "GET"
         endpoint: "{$config.api}/user"
-        headers:
-          PRIVATE-TOKEN: "{$env.GITLAB_TOKEN}"
-          Accept: "application/json"
   project.list:
     summary: "List projects you belong to"
     group: "project"
@@ -34,12 +36,9 @@ commands:
         pattern: ["project", "list"]
       mcp: true
     run:
-      rest:
+      http:
         method: "GET"
         endpoint: "{$config.api}/projects"
-        headers:
-          PRIVATE-TOKEN: "{$env.GITLAB_TOKEN}"
-          Accept: "application/json"
         query:
           page: "{page}"
           per_page: "{per_page}"
@@ -73,12 +72,9 @@ commands:
         pattern: ["project", "get"]
       mcp: true
     run:
-      rest:
+      http:
         method: "GET"
         endpoint: "{$config.api}/projects/{project}"
-        headers:
-          PRIVATE-TOKEN: "{$env.GITLAB_TOKEN}"
-          Accept: "application/json"
     input:
       project:
         type: "integer"
@@ -93,12 +89,9 @@ commands:
         pattern: ["user", "list"]
       mcp: true
     run:
-      rest:
+      http:
         method: "GET"
         endpoint: "{$config.api}/users"
-        headers:
-          PRIVATE-TOKEN: "{$env.GITLAB_TOKEN}"
-          Accept: "application/json"
         query:
           page: "{page}"
           per_page: "{per_page}"
@@ -127,12 +120,9 @@ commands:
         pattern: ["label", "list"]
       mcp: true
     run:
-      rest:
+      http:
         method: "GET"
         endpoint: "{$config.api}/projects/{project}/labels"
-        headers:
-          PRIVATE-TOKEN: "{$env.GITLAB_TOKEN}"
-          Accept: "application/json"
         query:
           page: "{page}"
           per_page: "{per_page}"
@@ -160,12 +150,9 @@ commands:
         pattern: ["milestone", "list"]
       mcp: true
     run:
-      rest:
+      http:
         method: "GET"
         endpoint: "{$config.api}/projects/{project}/milestones"
-        headers:
-          PRIVATE-TOKEN: "{$env.GITLAB_TOKEN}"
-          Accept: "application/json"
         query:
           page: "{page}"
           per_page: "{per_page}"
@@ -194,12 +181,9 @@ commands:
         pattern: ["issue", "list"]
       mcp: true
     run:
-      rest:
+      http:
         method: "GET"
         endpoint: "{$config.api}/projects/{project}/issues"
-        headers:
-          PRIVATE-TOKEN: "{$env.GITLAB_TOKEN}"
-          Accept: "application/json"
         query:
           page: "{page}"
           per_page: "{per_page}"
@@ -254,12 +238,9 @@ commands:
         pattern: ["issue", "get"]
       mcp: true
     run:
-      rest:
+      http:
         method: "GET"
         endpoint: "{$config.api}/projects/{project}/issues/{iid}"
-        headers:
-          PRIVATE-TOKEN: "{$env.GITLAB_TOKEN}"
-          Accept: "application/json"
     input:
       project:
         type: "integer"
@@ -278,12 +259,9 @@ commands:
         pattern: ["issue", "create"]
       mcp: true
     run:
-      rest:
+      http:
         method: "POST"
         endpoint: "{$config.api}/projects/{project}/issues"
-        headers:
-          PRIVATE-TOKEN: "{$env.GITLAB_TOKEN}"
-          Accept: "application/json"
         body:
           title: "{title}"
           issue_type: "{issue_type}"
@@ -337,12 +315,9 @@ commands:
         pattern: ["issue", "update"]
       mcp: true
     run:
-      rest:
+      http:
         method: "PUT"
         endpoint: "{$config.api}/projects/{project}/issues/{iid}"
-        headers:
-          PRIVATE-TOKEN: "{$env.GITLAB_TOKEN}"
-          Accept: "application/json"
         body:
           title:
             when: "title"
@@ -396,7 +371,7 @@ commands:
       cli:
         pattern: ["issue", "state"]
       mcp: true
-    run: [{"rest": {"method": "POST", "endpoint": "{$config.api}/projects/{project}/issues/{iid}/notes", "headers": {"PRIVATE-TOKEN": "{$env.GITLAB_TOKEN}"}, "body": {"body": "{note}"}}}, {"rest": {"method": "PUT", "endpoint": "{$config.api}/projects/{project}/issues/{iid}", "headers": {"PRIVATE-TOKEN": "{$env.GITLAB_TOKEN}", "Accept": "application/json"}, "body": {"state_event": "{state_event}"}}}]
+    run: [{"http": {"method": "POST", "endpoint": "{$config.api}/projects/{project}/issues/{iid}/notes", "body": {"body": "{note}"}}}, {"http": {"method": "PUT", "endpoint": "{$config.api}/projects/{project}/issues/{iid}", "body": {"state_event": "{state_event}"}}}]
     input:
       project:
         type: "integer"
@@ -422,12 +397,9 @@ commands:
         pattern: ["note", "list"]
       mcp: true
     run:
-      rest:
+      http:
         method: "GET"
         endpoint: "{$config.api}/projects/{project}/issues/{iid}/notes"
-        headers:
-          PRIVATE-TOKEN: "{$env.GITLAB_TOKEN}"
-          Accept: "application/json"
         query:
           page: "{page}"
           per_page: "{per_page}"
@@ -460,12 +432,9 @@ commands:
         pattern: ["note", "create"]
       mcp: true
     run:
-      rest:
+      http:
         method: "POST"
         endpoint: "{$config.api}/projects/{project}/issues/{iid}/notes"
-        headers:
-          PRIVATE-TOKEN: "{$env.GITLAB_TOKEN}"
-          Accept: "application/json"
         body:
           body: "{body}"
     input:

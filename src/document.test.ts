@@ -93,7 +93,7 @@ describe("the shapes it refuses", () => {
   });
 
   it("refuses an unknown executor, with the ones it has", () => {
-    refuses("commands:\n  a:\n    summary: A\n    run:\n      shellout: {}\n", "exec, internal, noop, rest");
+    refuses("commands:\n  a:\n    summary: A\n    run:\n      shellout: {}\n", "exec, http, internal, noop, rest");
   });
 
   it("refuses a step naming two executors", () => {
