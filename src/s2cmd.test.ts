@@ -10,13 +10,14 @@
 
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { canonicalFromCli, canonicalFromObject } from "facio";
+import { createRegistry, canonicalFromCli, canonicalFromObject } from "facio";
 import { listTools } from "facio/mcp";
 import { manifestFrom } from "facio/remote";
-import { registryFor } from "./cli.js";
-import { loadDocument, parseEnvFile } from "./load.js";
+import { commandsFromDocument } from "./document.js";
+import { registryFor } from "./s2cmd.js";
+import { loadDocument } from "./load.js";
 
-const path = fileURLToPath(new URL("../samples/depot.yaml", import.meta.url));
+const path = fileURLToPath(new URL("../samples/depot/depot.yaml", import.meta.url));
 const loaded = loadDocument(path);
 const { registry } = registryFor(loaded.document, {
   directory: loaded.directory,
@@ -24,24 +25,6 @@ const { registry } = registryFor(loaded.document, {
 });
 const add = registry.find("pet.add")!;
 const long = "x".repeat(41);
-
-describe("the document, composed", () => {
-  it("applies the imports before the file that imported them", () => {
-    expect(loaded.files.map((one) => one.split("/").pop()))
-      .toEqual(["depot.defaults.yaml", "depot.yaml"]);
-    expect(loaded.document["config"]).toMatchObject({ api: "http://127.0.0.1:8799" });
-  });
-
-  it("passes over a file that said it might not be there", () => {
-    expect(loaded.files.some((one) => one.endsWith("depot.local.yaml"))).toBe(false);
-    expect(loaded.environment["RELEASE_CHANNEL"]).toBe("stable");
-  });
-
-  it("resolves imports and env away, so the reader takes a composed document", () => {
-    expect(loaded.document["imports"]).toBeUndefined();
-    expect(loaded.document["env"]).toBeUndefined();
-  });
-});
 
 describe("the schema is the only rulebook", () => {
   it("holds a length on the command line", async () => {
@@ -125,71 +108,61 @@ describe("the command line", () => {
   });
 });
 
-describe("composing documents", () => {
-  const files: Record<string, string> = {
-    "/doc/main.yaml": [
-      "imports: [base.yaml, over.yaml]",
-      "config: { who: main }",
-      "commands:",
-      "  own:",
-      "    summary: Declared here",
-      "    run: noop",
-    ].join("\n"),
-    "/doc/base.yaml": [
-      "config: { who: base, kept: yes }",
-      "commands:",
-      "  shared:",
-      "    summary: From base",
-      "    run: noop",
-    ].join("\n"),
-    "/doc/over.yaml": [
-      "config: { who: over }",
-      "commands:",
-      "  shared:",
-      "    summary: From over",
-      "    run: noop",
-    ].join("\n"),
-  };
 
-  const read = (one: string): string => {
-    const text = files[one];
-    if (text === undefined) throw Object.assign(new Error(`no ${one}`), { code: "ENOENT" });
-    return text;
-  };
 
-  it("lets a later import win, and the importing file win over all of them", () => {
-    const composed = loadDocument("/doc/main.yaml", { readFile: read, environment: {} });
-    expect(composed.document["config"]).toEqual({ who: "main", kept: "yes" });
-    expect((composed.document["commands"] as Record<string, { summary: string }>)["shared"]?.summary)
-      .toBe("From over");
+describe("the GitLab sample", () => {
+  const loaded = loadDocument(fileURLToPath(new URL("../samples/gitlab/gitlab.yaml", import.meta.url)), {
+    environment: { GITLAB_TOKEN: "test-token" },
   });
 
-  it("refuses documents that import each other", () => {
-    const circular = {
-      "/doc/a.yaml": "imports: [b.yaml]\ncommands:\n  a:\n    summary: A\n    run: noop\n",
-      "/doc/b.yaml": "imports: [a.yaml]\ncommands:\n  b:\n    summary: B\n    run: noop\n",
-    } as Record<string, string>;
-    expect(() => loadDocument("/doc/a.yaml", {
-      readFile: (one) => circular[one] ?? "",
-      environment: {},
-    })).toThrow("import each other");
-  });
-});
-
-describe("environment files", () => {
-  it("reads the small, boring subset", () => {
-    expect(parseEnvFile([
-      "# a comment",
-      "",
-      "PLAIN=one",
-      "export EXPORTED=two",
-      'QUOTED="three four"',
-      "TRAILING=five # not part of it",
-    ].join("\n"))).toEqual({
-      PLAIN: "one",
-      EXPORTED: "two",
-      QUOTED: "three four",
-      TRAILING: "five",
-    });
+  it.each([
+    ["me", {}, "GET", "/user"],
+    ["project.list", {}, "GET", "/projects"],
+    ["project.get", { project: 123 }, "GET", "/projects/123"],
+    ["user.list", { username: "tester" }, "GET", "/users"],
+    ["label.list", { project: 123 }, "GET", "/projects/123/labels"],
+    ["milestone.list", { project: 123 }, "GET", "/projects/123/milestones"],
+    ["issue.list", { project: 123, search: "a & b" }, "GET", "/projects/123/issues"],
+    ["issue.get", { project: 123, iid: 42 }, "GET", "/projects/123/issues/42"],
+    ["issue.create", { project: 123, title: "Example" }, "POST", "/projects/123/issues"],
+    ["issue.update", { project: 123, iid: 42, title: "Updated" }, "PUT", "/projects/123/issues/42"],
+    ["issue.state", { project: 123, iid: 42, state_event: "close", note: "Verified" }, "PUT", "/projects/123/issues/42"],
+    ["note.list", { project: 123, iid: 42 }, "GET", "/projects/123/issues/42/notes"],
+    ["note.create", { project: 123, iid: 42, body: "A note" }, "POST", "/projects/123/issues/42/notes"],
+  ] as const)("maps %s to GitLab", async (id, input, method, path) => {
+    const seen: { url: URL; method: string; headers: Headers; body: unknown }[] = [];
+    const registry = createRegistry();
+    registry.register(...commandsFromDocument(loaded.document, {
+      directory: loaded.directory,
+      environment: loaded.environment,
+      config: loaded.document["config"] as Record<string, unknown>,
+      fetch: (async (url, init) => {
+        seen.push({ url: new URL(String(url)), method: init?.method ?? "GET",
+          headers: new Headers(init?.headers), body: init?.body ? JSON.parse(String(init.body)) : undefined });
+        return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" } });
+      }) as typeof fetch,
+    }));
+    const command = registry.find(id)!;
+    const canonical = await canonicalFromObject(command, input);
+    await registry.execute(command, { surface: "cli", input: canonical });
+    const request = seen.at(-1)!;
+    expect(request.url.pathname).toBe("/api/v4" + path);
+    expect(request.method).toBe(method);
+    expect(request.headers.get("PRIVATE-TOKEN")).toBe("test-token");
+    if (id.endsWith(".list")) {
+      expect(request.url.searchParams.get("page")).toBe("1");
+      expect(request.url.searchParams.get("per_page")).toBe("50");
+    }
+    if (id === "issue.list") expect(request.url.searchParams.get("search")).toBe("a & b");
+    if (id === "issue.create") expect(request.body).toEqual({ title: "Example", issue_type: "issue" });
+    if (id === "issue.update") expect(request.body).toEqual({ title: "Updated" });
+    if (id === "note.create") expect(request.body).toEqual({ body: "A note" });
+    if (id === "issue.state") {
+      expect(seen).toHaveLength(2);
+      expect(seen[0]!.method).toBe("POST");
+      expect(seen[0]!.url.pathname).toBe("/api/v4/projects/123/issues/42/notes");
+      expect(seen[0]!.body).toEqual({ body: "Verified" });
+      expect(request.body).toEqual({ state_event: "close" });
+    }
   });
 });

@@ -10,7 +10,7 @@
 # repository already ships, so the whole document runs end to end:
 #
 #   node ../facio/examples/dist/petshop/cli.js serve --port 8799 &
-#   node dist/cli.js --document samples/depot.yaml pet list
+#   node dist/s2cmd.js --document samples/depot/depot.yaml pet list
 
 name: depot
 version: 1.0.0

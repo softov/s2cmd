@@ -8,7 +8,7 @@
     "node": ">=22"
   },
   "bin": {
-    "s2cmd": "./dist/cli.js"
+    "s2cmd": "./dist/s2cmd.js"
   },
   "files": [
     "dist",

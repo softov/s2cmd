@@ -2,3 +2,6 @@ node_modules/
 dist/
 coverage/
 *.tgz
+samples/**/*.local.yaml
+samples/**/*.local.env
+samples/gitlab/gitlab.env
