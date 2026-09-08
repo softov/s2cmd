@@ -24,3 +24,13 @@ Use numeric project IDs from `project list` and project-local issue numbers (`ii
 The mappings cover identity, projects, users, labels, active milestones, issue search/read/create/update/state changes, and issue notes. State changes post the required reason first; if the second request fails, the note remains and the state is unchanged. For `issue update`, supply at least one field to change. Empty optional strings and arrays are omitted, so this sample does not clear descriptions or labels. Labels replace the entire label list; these direct API mappings do not implement Tasker's label vocabulary validation or component preservation. Search before creating issues.
 
 The defaults target GitLab.com. The sample uses the existing REST executor and requires no GitLab SDK.
+
+Alternatively, save the API endpoint through the CLI:
+
+```sh
+npm run dev -- --document samples/gitlab/gitlab.yaml config keys
+npm run dev -- --document samples/gitlab/gitlab.yaml config set api https://gitlab.example.com/api/v4
+npm run dev -- --document samples/gitlab/gitlab.yaml config
+```
+
+Only `api` is declared writable in this sample. It must be an absolute HTTP(S) URI. With no external configuration file loaded, this creates `.gitlab.json` in the current directory. The token continues to come from `GITLAB_TOKEN`.

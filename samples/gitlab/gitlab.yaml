@@ -4,6 +4,13 @@ version: "0.1.0"
 description: "GitLab API actions declared as data"
 imports: ["gitlab.defaults.yaml", {"path": "gitlab.local.yaml", "optional": true}]
 env: [{"path": "gitlab.env", "optional": true}]
+configSchema:
+  api:
+    type: string
+    format: uri
+    pattern: "^https?://"
+    description: GitLab API endpoint including /api/v4
+    default: https://gitlab.com/api/v4
 commands:
   me:
     summary: "Read the authenticated user"

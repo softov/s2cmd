@@ -7,6 +7,7 @@ import { reference } from "facio/docs";
 import { listTools } from "facio/mcp";
 import { commandsFromDocument, configOf, programOf } from "./document.js";
 import { loadDocument, parseDocument } from "./load.js";
+import { configSchemaOf, setConfig } from "./config.js";
 import { createDocumentServer } from "./serve.js";
 
 /**
@@ -172,6 +173,37 @@ async function build(argv: readonly string[]): Promise<Program> {
       ),
     ),
   });
+
+  const schema = configSchemaOf(loaded.document);
+  if (Object.keys(schema).length > 0) {
+    registry.action({
+      id: "config.keys",
+      summary: "List writable configuration keys and their schemas",
+      surfaces: { cli: { pattern: ["config", "keys"] } },
+      ...meta,
+      run: () => output(schema, () => renderTable(
+        ["key", "type", "description", "default"],
+        Object.entries(schema).map(([key, field]) => [key, field.type ?? "", field.description ?? "", JSON.stringify(field.default) ?? ""]),
+      )),
+    });
+    registry.action({
+      id: "config.set",
+      summary: "Validate and save a writable configuration value",
+      description: "Writable settings: " + Object.entries(schema)
+        .map(([key, field]) => `${key} (${field.type}): ${field.description ?? ""}`).join("; "),
+      input: {
+        key: { type: "string", enum: Object.keys(schema), description: "Setting listed by config keys" },
+        value: { type: "string", description: "New value; use JSON for arrays and objects" },
+      },
+      required: ["key", "value"],
+      surfaces: { cli: { pattern: ["config", "set", ":key", ":value"] } },
+      ...meta,
+      run: ({ input }) => {
+        const saved = setConfig(schema, config, program.name, input.key, input.value);
+        return output(saved, `Saved ${saved.key} to ${saved.path}`);
+      },
+    });
+  }
 
   registry.action({
     id: "serve",

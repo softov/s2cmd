@@ -90,3 +90,21 @@ describe("environment files", () => {
     });
   });
 });
+
+
+it("merges imported config schemas by key and replaces an overridden field whole", () => {
+  const files: Record<string, string> = {
+    "/doc/base.json": JSON.stringify({ configSchema: {
+      api: { type: "string", default: "https://gitlab.com/api/v4" },
+      timeout: { type: "integer", minimum: 1, default: 30 },
+    } }),
+    "/doc/main.json": JSON.stringify({ imports: ["base.json"], configSchema: {
+      timeout: { type: "integer", minimum: 10 },
+    } }),
+  };
+  const result = loadDocument("/doc/main.json", { readFile: (path) => files[path]!, environment: {} });
+  expect(result.document["configSchema"]).toEqual({
+    api: { type: "string", default: "https://gitlab.com/api/v4" },
+    timeout: { type: "integer", minimum: 10 },
+  });
+});

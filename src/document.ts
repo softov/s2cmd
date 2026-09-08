@@ -12,6 +12,7 @@ import {
   type Output,
   type Surfaces,
 } from "facio";
+import { configDefaults, configSchemaOf } from "./config.js";
 import type { HttpBinding } from "facio/remote";
 import { defaultExecutors, type Executor, type ExecutorOptions, type StepResult } from "./executors.js";
 import type { Scope } from "./values.js";
@@ -41,7 +42,7 @@ const SCHEMA_KEYS = [
 
 const TYPES = ["string", "number", "integer", "boolean", "array", "object"] as const;
 
-const DOCUMENT_KEYS = ["name", "version", "description", "config", "commands"] as const;
+const DOCUMENT_KEYS = ["name", "version", "description", "config", "configSchema", "commands"] as const;
 
 const COMMAND_KEYS = [
   "summary", "description", "group", "input", "required",
@@ -270,7 +271,8 @@ export function programOf(raw: unknown, fallback: DocumentProgram): DocumentProg
 
 export function configOf(raw: unknown): Record<string, unknown> {
   const document = asMap(raw, "the document");
-  return document["config"] === undefined ? {} : asMap(document["config"], "config");
+  return { ...configDefaults(configSchemaOf(document)),
+    ...(document["config"] === undefined ? {} : asMap(document["config"], "config")) };
 }
 
 /**
@@ -289,6 +291,7 @@ export function commandsFromDocument(raw: unknown, options: ReadOptions = {}): C
     }
   }
   only(document, DOCUMENT_KEYS, "the document");
+  configSchemaOf(document);
 
   const config = options.config ?? configOf(document);
   const executors = options.executors ?? defaultExecutors(options);

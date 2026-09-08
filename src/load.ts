@@ -143,7 +143,7 @@ function merge(base: Record<string, unknown>, over: Record<string, unknown>): Re
   const out: Record<string, unknown> = { ...base };
   for (const [key, value] of Object.entries(over)) {
     if (key === "imports" || key === "env") continue;
-    out[key] = key === "config" || key === "commands"
+    out[key] = key === "config" || key === "commands" || key === "configSchema"
       ? mergeMaps(base[key], value, key === "config")
       : value;
   }
