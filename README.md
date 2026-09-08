@@ -15,6 +15,13 @@ node dist/s2cmd.js --document samples/depot/depot.yaml mcp tools
 node dist/s2cmd.js --document samples/depot/depot.yaml release build -e staging
 ```
 
+Run directly from TypeScript during development, passing CLI arguments after `--`:
+
+```sh
+npm run dev -- --document samples/depot/depot.yaml --help
+npm run dev -- --document samples/gitlab/gitlab.yaml --help
+```
+
 `npm link` makes the `s2cmd` command available locally after building.
 
 The sample's pet and deployment commands call the facio petshop example on port 8799. Start it from the facio checkout with `npm run examples` followed by `node examples/dist/petshop/cli.js serve --port 8799`.

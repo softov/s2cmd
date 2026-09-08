@@ -22,13 +22,15 @@
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "vitest run",
     "check": "npm run build && npm run typecheck && npm test",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "dev": "tsx src/s2cmd.ts"
   },
   "dependencies": {
     "facio": "file:../facio"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
+    "tsx": "^4.23.13",
     "typescript": "^5.8.3",
     "vitest": "^2.1.9"
   }
