@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# One run per branch. A push over a push is a run nobody is waiting for.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # A hung test should fail the run rather than sit on a runner for six hours,
+    # which is the default.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: s2cmd
+
+      # `package.json` depends on `file:../facio`, so the sibling checkout is
+      # part of the build rather than a convenience. Until that becomes a
+      # published version, CI has to reproduce the layout a developer has.
+      - uses: actions/checkout@v7
+        with:
+          repository: softov/facio
+          ref: main
+          path: facio
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v7
+        with:
+          # The `engines` field, and the version the tests are written against.
+          node-version: 22
+
+      # facio is a pnpm repository and this one is an npm repository, so each
+      # is installed the way its own lockfile says.
+      - name: Build facio
+        working-directory: facio
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+
+      # `npm ci` rather than `npm install`, so a lockfile that does not match
+      # package.json fails here rather than resolving to something nobody
+      # wrote down.
+      - name: Install
+        working-directory: s2cmd
+        run: npm ci
+
+      - name: Check
+        working-directory: s2cmd
+        # Build, typecheck, then the tests. Bounded, because a job that runs
+        # into the runner's own timeout is cancelled rather than failed, and a
+        # cancelled job leaves no readable log at all.
+        run: timeout 600 npm run check
+
+      # The samples are shipped, so they are worth running. `--help` renders
+      # every command the document declares, which is what catches a document
+      # that no longer loads.
+      - name: The samples still load
+        working-directory: s2cmd
+        run: |
+          set -eu
+          for document in samples/depot/depot.yaml samples/gitlab/gitlab.yaml; do
+            echo "== $document"
+            node dist/s2cmd.js --document "$document" --help > /dev/null
+            node dist/s2cmd.js --document "$document" mcp tools > /dev/null
+          done
+
+      # What would actually be published, which is not what `files` says until
+      # something has packed it.
+      - name: Pack
+        working-directory: s2cmd
+        run: npm pack --pack-destination ${{ runner.temp }}

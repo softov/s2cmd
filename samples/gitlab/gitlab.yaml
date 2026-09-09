@@ -1,4 +1,5 @@
-# HTTP mappings based on service_tasker/packages/gitlab/src/{client,store}.ts.
+# The GitLab REST API v4, declared as commands. No SDK, no handler: every
+# command below is one `http` step over the shared headers in `defaults`.
 name: "gitlab"
 version: "0.1.0"
 description: "GitLab API actions declared as data"
@@ -20,6 +21,7 @@ commands:
   me:
     summary: "Read the authenticated user"
     group: "me"
+    allowRemoteExec: true
     surfaces:
       cli:
         pattern: ["me"]

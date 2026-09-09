@@ -21,7 +21,7 @@ node dist/s2cmd.js --document samples/gitlab/gitlab.yaml issue state --project 1
 
 Use numeric project IDs from `project list` and project-local issue numbers (`iid`). Each list returns one page; advance `--page` explicitly. Responses are raw GitLab JSON. `note list` includes system events, identified by `system: true`.
 
-The mappings cover identity, projects, users, labels, active milestones, issue search/read/create/update/state changes, and issue notes. State changes post the required reason first; if the second request fails, the note remains and the state is unchanged. For `issue update`, supply at least one field to change. Empty optional strings and arrays are omitted, so this sample does not clear descriptions or labels. Labels replace the entire label list; these direct API mappings do not implement Tasker's label vocabulary validation or component preservation. Search before creating issues.
+The mappings cover identity, projects, users, labels, active milestones, issue search/read/create/update/state changes, and issue notes. State changes post the required reason first; if the second request fails, the note remains and the state is unchanged. For `issue update`, supply at least one field to change. Empty optional strings and arrays are omitted, so this sample does not clear descriptions or labels. Labels replace the entire label list, so `issue update --labels` overwrites every label an issue already has rather than adding to them. Search before creating issues.
 
 The defaults target GitLab.com. The sample uses the existing HTTP executor and requires no GitLab SDK.
 

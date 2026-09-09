@@ -1,9 +1,37 @@
 {
   "name": "s2cmd",
   "version": "0.1.0",
-  "description": "Command lines, HTTP routes and MCP tools from YAML or JSON documents, powered by facio.",
-  "type": "module",
+  "description": "Command lines, HTTP routes and MCP tools from one YAML or JSON document",
+  "keywords": [
+    "cli",
+    "command-line",
+    "cli-generator",
+    "yaml",
+    "json",
+    "declarative",
+    "task-runner",
+    "scripts",
+    "mcp",
+    "model-context-protocol",
+    "agent",
+    "http",
+    "rest",
+    "api-client",
+    "openapi",
+    "facio"
+  ],
+  "author": "Luiz Fernando Softov <lfs@softov.dev>",
   "license": "MIT",
+  "funding": "https://github.com/sponsors/softov",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/softov/s2cmd.git"
+  },
+  "homepage": "https://github.com/softov/s2cmd#readme",
+  "bugs": {
+    "url": "https://github.com/softov/s2cmd/issues"
+  },
+  "type": "module",
   "engines": {
     "node": ">=22"
   },
@@ -17,13 +45,17 @@
     "LICENSE",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.test.json",
-    "test": "vitest run",
     "check": "npm run build && npm run typecheck && npm test",
+    "dev": "tsx src/s2cmd.ts",
     "prepack": "npm run build",
-    "dev": "tsx src/s2cmd.ts"
+    "prepublishOnly": "npm run check",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.test.json"
   },
   "dependencies": {
     "facio": "file:../facio"

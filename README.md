@@ -1,46 +1,118 @@
 # s2cmd
 
-A standalone package that turns YAML or JSON command documents into a CLI, HTTP routes and MCP tools using `facio`.
+**Write the commands in a file. Get a CLI, an HTTP API and MCP tools.**
 
-## Development
+[![npm](https://img.shields.io/npm/v/s2cmd.svg)](https://www.npmjs.com/package/s2cmd)
+[![node](https://img.shields.io/node/v/s2cmd.svg)](https://www.npmjs.com/package/s2cmd)
+[![license](https://img.shields.io/npm/l/s2cmd.svg)](LICENSE)
 
-Requires Node.js 22 or newer. The `facio` dependency currently uses the sibling checkout at `../facio`.
+## What it is
 
-```sh
-npm --prefix ../facio run build
-npm install
-npm run check
-node dist/s2cmd.js --document samples/depot/depot.yaml --help
-node dist/s2cmd.js --document samples/depot/depot.yaml mcp tools
-node dist/s2cmd.js --document samples/depot/depot.yaml release build -e staging
+A YAML or JSON document declares commands: their input schemas, which surfaces they appear on, and what they run. `s2cmd` reads it and hands the whole thing to [`facio`](https://github.com/softov/facio), which is where the surfaces come from.
+
+Nobody writes a handler, and nobody implements a surface.
+
+```yaml
+# pets.yaml
+name: depot
+version: 1.0.0
+
+config:
+  api: http://localhost:8799
+
+commands:
+  pet.add:
+    summary: Add a pet
+    input:
+      name: { type: string, minLength: 1 }
+      age:  { type: integer, minimum: 0, default: 1 }
+    surfaces:
+      cli:  { pattern: [pet, add, ":name"] }
+      http: { method: POST, path: /pets }
+      mcp:  true
+    run:
+      http:
+        method: POST
+        endpoint: "{$config.api}/pets"
+        body: { name: "{name}", age: "{age}" }
 ```
 
-Run directly from TypeScript during development, passing CLI arguments after `--`:
+One file, three surfaces:
 
 ```sh
-npm run dev -- --document samples/depot/depot.yaml --help
-npm run dev -- --document samples/gitlab/gitlab.yaml --help
+# a command line, with parsing, coercion, validation, --help and completion
+s2cmd --document pets.yaml pet add Ada --age 99
+s2cmd --document pets.yaml pet add Ada --json
+
+# an HTTP API of its own
+s2cmd --document pets.yaml serve --port 8801 &
+curl -X POST localhost:8801/pets -d '{"name":"Ada","age":99}'
+
+# the tools an agent would receive
+s2cmd --document pets.yaml mcp tools
 ```
 
-`npm link` makes the `s2cmd` command available locally after building.
+A command that runs a *process* is the same shape, with one more word — see [below](#a-shell-step-does-not-become-an-agent-tool-by-accident) for why that word is required:
 
-The sample's pet and deployment commands call the facio petshop example on port 8799. Start it from the facio checkout with `npm run examples` followed by `node examples/dist/petshop/cli.js serve --port 8799`.
+```yaml
+  release.deploy:
+    summary: Deploy the application
+    input:
+      env:   { type: string, enum: [staging, production], default: production, cli: { short: -e } }
+      force: { type: boolean, default: false, cli: { short: -f } }
+    surfaces:
+      cli: { pattern: [release, deploy] }
+    run:
+      - exec: { command: ./scripts/build.sh, args: ["{env}"] }
+      - exec:
+          command: ./scripts/deploy.sh
+          args:
+            - "{env}"
+            - { when: force, value: "--force" }
+```
 
-## Command documents
+Everything a document-defined command needs already existed in `facio` except one thing. `run` is a function, and a file cannot hold one, so execution is stated as data: named executors and an ordered list of steps. `input` is the same map of JSON Schema `registry.action` takes and `surfaces` is the same declaration, so the terminal, an HTTP request and an MCP tool call are held to one rule exactly as they are in code.
 
-Documents declare `commands`, their input schemas, surfaces and execution steps. Supported executors are `noop`, `internal` (another registered command), `exec` (a process), and `http` (an HTTP request; `rest` remains an alias). Steps run in order and stop at the first failure.
+## Install
 
-`imports` composes documents and `env` loads environment files. Paths resolve relative to the document. See `samples/depot/depot.yaml` for a complete example.
+```sh
+npm install -g s2cmd
+```
 
-Process arguments are arrays. Commands that run processes, including through internal calls, require `allowRemoteExec: true` before being exposed through HTTP or MCP.
+Node.js 22 or newer.
 
-The included YAML reader supports a restricted subset; use JSON for documents requiring unsupported YAML features.
+## Executors
 
-## Packaging
+| executor   | what it does                                            |
+| ---------- | ------------------------------------------------------- |
+| `noop`     | nothing: the word that only exists to hold subcommands  |
+| `internal` | another command of the same document, through `execute` |
+| `exec`     | one process, given its arguments as argv                |
+| `http`     | one HTTP call (`rest` remains an alias)                 |
 
-`npm pack` builds the CLI and packages the compiled files and samples. Before publishing for use outside this checkout layout, replace the local `facio` dependency with the corresponding published version.
+Steps run in order and stop at the first failure. A single step may be written unwrapped, and a bare name is a step with nothing to configure (`run: noop`). An executor the document does not name is a registration error, so it is a crash on the first run rather than a surprise on the one command nobody tested. So is a placeholder naming no field, an `internal` step calling a command the document does not declare, and two of them calling each other.
 
-The [GitLab sample](samples/gitlab/README.md) maps GitLab projects, issues, notes and reference data through REST commands.
+**Arguments are arrays, never a shell string.** Interpolating a value into a shell string is command injection the moment that value comes from anywhere but the author's own keyboard, and here it comes from whoever typed the command. `args` is a list and reaches the process as one, so `;` and `$(...)` in a value arrive as literal text. `shell: true` is how to ask for the other behaviour, and asking is the point.
+
+**No template language.** `{{#if force}}--force{{/if}}` means a dependency and an argument list that gets re-parsed. The input is already validated and typed, so the two things a template is used for are data instead: `{ when: force, value: "--force" }` drops a value, `{ each: tags, value: "--tag={$item}" }` repeats one. Interpolation is one rule with no exception: `$` means "not an input field". Everything without it is the input, all the way down, so `{env}` is the field a deploy command always has and `{theme.mode}` reaches into a structured one. `{$env.NAME}` is the environment, `{$config.theme.mode}` is the resolved configuration, and `{$item}` is the value of the surrounding `each`.
+
+## A shell step does not become an agent tool by accident
+
+If MCP came for free, a YAML file would be a set of tools an agent can call and `exec` is arbitrary shell. `surfaces.mcp` being off by default already prevents the worst of it; `s2cmd` goes further and refuses to publish a command holding an `exec` step as an MCP tool or an HTTP route unless that command says so:
+
+```yaml
+    allowRemoteExec: true
+```
+
+Separate from `surfaces`, refused loudly rather than dropped quietly, and it travels: a command whose only step calls another command that runs a process is a command that runs a process. `http` and `internal` steps default the normal way.
+
+## Composing documents
+
+`imports:` composes other documents and `env:` loads environment files, both taking a bare path or `{ path: ..., optional: true }` for a file that may not be there. Paths resolve relative to the document. Later wins, and the importing document wins over everything it imported.
+
+## YAML, without a dependency
+
+`facio` has no dependencies and a command document is not worth one, so the included reader covers the subset a document is written in and **refuses the rest by name** — anchors, aliases, tags, block scalars, merge keys, multiple documents. A hand-written YAML parser is a liability exactly to the extent that it accepts a document and reads it differently from a real one, and refusing is how that is bounded. Nothing downstream reads YAML: the reader takes parsed data, so a full parser is a one-line substitution for anybody who wants one, and JSON is always available for a document that needs what the subset refuses.
 
 ## Writable configuration
 
@@ -62,14 +134,14 @@ configSchema:
 ```
 
 ```sh
-npm run dev -- --document samples/gitlab/gitlab.yaml config keys
-npm run dev -- --document samples/gitlab/gitlab.yaml config set api https://gitlab.example.com/api/v4
-npm run dev -- --document samples/gitlab/gitlab.yaml config
+s2cmd --document samples/gitlab/gitlab.yaml config keys
+s2cmd --document samples/gitlab/gitlab.yaml config set api https://git.example.com/api/v4
+s2cmd --document samples/gitlab/gitlab.yaml config
 ```
 
 `config keys --json` prints the complete schemas, including constraints. `config set KEY VALUE` rejects unknown keys and invalid values before writing. These commands appear when the document declares writable settings. They are CLI-only.
 
-Each key is a simple top-level name. Types are string, number, integer, boolean, array, or object. Arrays and objects take JSON text; object properties must be declared. Numeric bounds, string length/pattern, enums, constants, and URI/date-time formats are validated. Imported schemas merge by setting name; a later declaration replaces that setting’s whole schema. Schema defaults sit below the document's `config` values and external configuration layers. This declaration controls setting values; existing configuration files are not retroactively validated.
+Each key is a simple top-level name. Types are string, number, integer, boolean, array, or object. Arrays and objects take JSON text; object properties must be declared. Numeric bounds, string length/pattern, enums, constants, and URI/date-time formats are validated. Imported schemas merge by setting name; a later declaration replaces that setting's whole schema. Schema defaults sit below the document's `config` values and external configuration layers. This declaration controls setting values; existing configuration files are not retroactively validated.
 
 The writer updates the highest-priority file already loaded: explicit `--config`, program configuration environment variable, project file, then user file. If none exists, it creates `.<program>.json` in the working directory (`.gitlab.json` for GitLab). Explicit files must already exist. Only the selected key is changed; unrelated values are preserved, and defaults are not copied into the file. YAML files are rewritten as YAML with flow values; comments and original formatting are not preserved. Writes replace the file atomically; the next invocation reads the saved value.
 
@@ -108,3 +180,48 @@ run:
 ```
 
 `inheritHeaders: false` removes all document-default headers for that step while retaining its own headers. Defaults do not apply to other executors.
+
+## Samples
+
+| Sample                                     | Shows                                                        |
+| ------------------------------------------ | ------------------------------------------------------------ |
+| [`depot`](samples/depot/depot.yaml)        | Every executor, imports, environment files, all three surfaces |
+| [`gitlab`](samples/gitlab/README.md)       | A real REST API as commands, with writable configuration      |
+
+The depot sample's pet commands call the `facio` petshop example on port 8799. From a `facio` checkout: `npm run examples && node examples/dist/petshop/cli.js serve --port 8799`.
+
+## Development
+
+The `facio` dependency currently uses the sibling checkout at `../facio`.
+
+```sh
+npm --prefix ../facio run build
+npm install
+npm run check
+
+node dist/s2cmd.js --document samples/depot/depot.yaml --help
+```
+
+Run directly from TypeScript, passing CLI arguments after `--`:
+
+```sh
+npm run dev -- --document samples/depot/depot.yaml --help
+```
+
+`npm link` makes the `s2cmd` command available locally after building.
+
+## Packaging
+
+`npm pack` builds the CLI and packages the compiled files and samples. Before publishing for use outside this checkout layout, replace the local `facio` dependency with the corresponding published version.
+
+## Documentation
+
+`s2cmd` is a front end for [`facio`](https://github.com/softov/facio), whose manual covers everything a surface does with a command once it has been declared:
+
+* [Getting started](https://github.com/softov/facio/blob/main/docs/01-getting-started.md)
+* [Actions](https://github.com/softov/facio/blob/main/docs/02-actions.md)
+* [Configuration](https://github.com/softov/facio/blob/main/docs/10-config.md)
+
+## License
+
+[MIT](LICENSE)
