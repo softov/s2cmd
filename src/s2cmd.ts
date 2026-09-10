@@ -8,6 +8,8 @@ import { listTools } from "facio/mcp";
 import { commandsFromDocument, configOf, programOf } from "./document.js";
 import { loadDocument, parseDocument } from "./load.js";
 import { configSchemaOf, setConfig } from "./config.js";
+import { loadSources, sourceCommands, connectSources } from "./openapi.js";
+import type { Argument } from "./values.js";
 import { createDocumentServer } from "./serve.js";
 
 /**
@@ -56,19 +58,22 @@ export function registryFor(
     environment: Readonly<Record<string, string | undefined>>;
     /** What `{$config.…}` reads. The document's own block unless a resolver widened it. */
     config?: Readonly<Record<string, unknown>>;
+    additionalCommands?: Command[];
   },
 ): { registry: Registry<object>; commands: Command[] } {
   let built: Registry<object> | undefined;
 
-  const commands = commandsFromDocument(document, {
+  const local = commandsFromDocument(document, {
     directory: options.directory,
     environment: options.environment,
     config: options.config ?? configOf(document),
     // The registry does not exist yet, and an `internal` step only needs it
     // when something runs. A thunk is the whole of that problem.
     runner: () => built!,
+    allowEmpty: (options.additionalCommands?.length ?? 0) > 0,
   });
 
+  const commands = [...local, ...(options.additionalCommands ?? [])];
   const groups = groupsFor(commands);
   built = createRegistry(groups.length === 0 ? {} : { groups });
   built.register(...commands);
@@ -108,6 +113,9 @@ async function build(argv: readonly string[]): Promise<Program> {
    * than as the stack trace of a startup that had not reached `runEntry` yet.
    */
   const loaded = attempt(() => loadDocument(path));
+  let sources: Awaited<ReturnType<typeof loadSources>>;
+  try { sources = await loadSources(loaded.document["sources"], loaded.directory); }
+  catch (error) { return attempt(() => { throw error; }); }
   const program = programOf(loaded.document, { name: "s2cmd", version: VERSION });
 
   /*
@@ -128,10 +136,21 @@ async function build(argv: readonly string[]): Promise<Program> {
     directory: loaded.directory,
     environment: loaded.environment,
     config: config.values,
+    additionalCommands: sourceCommands(sources),
   }));
+  attempt(() => connectSources(registry, sources, { input: {}, config: config.values, env: loaded.environment },
+    ((loaded.document["defaults"] as { http?: { headers?: Record<string, Argument> } } | undefined)?.http?.headers ?? {})));
 
   const grouped = groupsFor(commands).length > 0;
   const meta = grouped ? { group: "meta" } : {};
+
+  if (sources.length) {
+    registry.action({ id: "sources", summary: "List loaded OpenAPI sources and unsupported operations",
+      surfaces: { cli: { pattern: ["sources"] } }, ...meta,
+      run: () => output(sources.map((source) => ({ name: source.name, operations: source.manifest.commands.length, files: source.files, references: source.diagnostics, unsupported: source.issues }))),
+    });
+    for (const source of sources) if (source.issues.length) process.stderr.write(`${source.name}: omitted ${source.issues.length} unsupported operation(s); run sources --json for details\n`);
+  }
 
   registry.action({
     id: "mcp.tools",

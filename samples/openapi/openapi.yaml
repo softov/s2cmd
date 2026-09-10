@@ -1,0 +1,36 @@
+name: controllr
+
+sources:
+  controllr:
+    type: openapi
+    path: ../openapi-controllr/openapi.yaml
+    endpoint: "{$config.api}"
+    hints:
+      post.login:
+        skip: true
+    auth:
+      type: "{$config.auth}"
+      username: "{$env.CONTROLLR_USERNAME}"
+      password: "{$env.CONTROLLR_PASSWORD}"
+      login:
+        path: /login
+        contentType: application/x-www-form-urlencoded
+        body:
+          username: "{$env.CONTROLLR_USERNAME}"
+          password: "{$env.CONTROLLR_PASSWORD}"
+
+configSchema:
+  auth:
+    type: string
+    enum: [cookie, basic, none]
+    default: cookie
+    description: Authentication method
+  api:
+    type: string
+    format: uri
+    default: https://controllr.example.com:8443
+
+defaults:
+  http:
+    headers:
+      Cookie: { when: "$env.CONTROLLR_COOKIE", value: "{$env.CONTROLLR_COOKIE}" }

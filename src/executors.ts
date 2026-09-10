@@ -361,6 +361,7 @@ function httpHeadersFrom(raw: unknown): Record<string, unknown> {
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE"] as const;
 
 interface HttpStep {
+  contentType: NonNullable<HttpBinding["contentType"]>;
   method: HttpBinding["method"];
   endpoint: Argument;
   query: Record<string, Argument>;
@@ -381,10 +382,14 @@ function httpExecutor(options: ExecutorOptions, defaults: Record<string, unknown
     remoteSafe: true,
     prepare(raw, context) {
       const step = asMap(raw, context.where);
-      only(step, ["method", "endpoint", "query", "body", "headers", "inheritHeaders"], context.where);
+      only(step, ["method", "endpoint", "query", "body", "headers", "inheritHeaders", "contentType"], context.where);
 
       if (step["inheritHeaders"] !== undefined && typeof step["inheritHeaders"] !== "boolean") {
         throw new Error(`${context.where}.inheritHeaders must be a boolean`);
+      }
+      const contentType = step["contentType"] ?? "application/json";
+      if (contentType !== "application/json" && contentType !== "application/x-www-form-urlencoded") {
+        throw new Error(`${context.where}.contentType must be application/json or application/x-www-form-urlencoded`);
       }
       const headers = {
         ...(step["inheritHeaders"] === false ? {} : defaults),
@@ -415,6 +420,7 @@ function httpExecutor(options: ExecutorOptions, defaults: Record<string, unknown
       }
 
       return {
+        contentType,
         method: method as HttpBinding["method"],
         endpoint,
         query,
@@ -449,6 +455,7 @@ function httpExecutor(options: ExecutorOptions, defaults: Record<string, unknown
       });
 
       const binding: HttpBinding = {
+        contentType: step.contentType,
         method: step.method,
         path: url.pathname,
         query: Object.keys(query),

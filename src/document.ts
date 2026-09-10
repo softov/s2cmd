@@ -42,7 +42,7 @@ const SCHEMA_KEYS = [
 
 const TYPES = ["string", "number", "integer", "boolean", "array", "object"] as const;
 
-const DOCUMENT_KEYS = ["name", "version", "description", "config", "configSchema", "defaults", "commands"] as const;
+const DOCUMENT_KEYS = ["name", "version", "description", "config", "configSchema", "defaults", "sources", "commands"] as const;
 
 const COMMAND_KEYS = [
   "summary", "description", "group", "input", "required",
@@ -52,6 +52,7 @@ const COMMAND_KEYS = [
 const SURFACE_KEYS = ["cli", "http", "mcp", "docs"] as const;
 
 export interface ReadOptions extends ExecutorOptions {
+  allowEmpty?: boolean;
   /** What a document may name in `run`. The four built-in executors by default. */
   executors?: Readonly<Record<string, Executor>>;
   /** `{config.…}`. Whatever the document itself declared, unless a caller supplies its own. */
@@ -300,7 +301,7 @@ export function commandsFromDocument(raw: unknown, options: ReadOptions = {}): C
 
   const commands = asMap(document["commands"] ?? {}, "commands");
   const ids = new Set(Object.keys(commands));
-  if (ids.size === 0) throw new Error("the document declares no commands");
+  if (ids.size === 0 && !options.allowEmpty) throw new Error("the document declares no commands");
 
   const read = Object.entries(commands).map(([id, body]) =>
     readCommand(id, body, ids, executors));

@@ -127,3 +127,13 @@ it("merges HTTP headers across imports case-insensitively with the document winn
     "x-conditional": { when: "$env.NEW", value: "new" },
   } } });
 });
+
+
+it("resolves source paths relative to their declaring import and merges source names", () => {
+  const files: Record<string, string> = {
+    "/doc/main.json": JSON.stringify({ imports: ['nested/base.json'], sources: { second: { type: 'openapi', path: 'other.yaml' } } }),
+    "/doc/nested/base.json": JSON.stringify({ sources: { first: { type: 'openapi', path: 'api.yaml' } } }),
+  };
+  expect(loadDocument('/doc/main.json', { readFile: (path) => files[path]!, environment: {} }).document['sources'])
+    .toEqual({ first: { type: 'openapi', path: '/doc/nested/api.yaml' }, second: { type: 'openapi', path: '/doc/other.yaml' } });
+});

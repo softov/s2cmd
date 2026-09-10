@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { createRegistry, type Registry } from "facio";
 import { commandsFromDocument, type ReadOptions } from "./document.js";
-import { parseYaml } from "./yaml.js";
+import { parseYaml } from "facio/yaml";
 
 function read(text: string, options: ReadOptions = {}): ReturnType<typeof commandsFromDocument> {
   return commandsFromDocument(parseYaml(text), options);

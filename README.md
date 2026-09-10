@@ -81,6 +81,10 @@ npm install -g s2cmd
 
 Node.js 22 or newer.
 
+## YAML parser
+
+YAML parsing comes from the reusable `facio/yaml` subpath. The current parser supports a documented subset and reports the source file and line on syntax errors. s2cmd owns document composition and command validation.
+
 ## Executors
 
 | executor   | what it does                                            |
@@ -112,7 +116,7 @@ Separate from `surfaces`, refused loudly rather than dropped quietly, and it tra
 
 ## YAML, without a dependency
 
-`facio` has no dependencies and a command document is not worth one, so the included reader covers the subset a document is written in and **refuses the rest by name** — anchors, aliases, tags, block scalars, merge keys, multiple documents. A hand-written YAML parser is a liability exactly to the extent that it accepts a document and reads it differently from a real one, and refusing is how that is bounded. Nothing downstream reads YAML: the reader takes parsed data, so a full parser is a one-line substitution for anybody who wants one, and JSON is always available for a document that needs what the subset refuses.
+`facio` has no dependencies and a command document is not worth one, so the included reader covers the subset a document is written in and **refuses the rest by name** — anchors, aliases, custom tags, merge keys, multiple documents. A hand-written YAML parser is a liability exactly to the extent that it accepts a document and reads it differently from a real one, and refusing is how that is bounded. Nothing downstream reads YAML: the reader takes parsed data, so a full parser is a one-line substitution for anybody who wants one, and JSON is always available for a document that needs what the subset refuses.
 
 ## Writable configuration
 
@@ -225,3 +229,31 @@ npm run dev -- --document samples/depot/depot.yaml --help
 ## License
 
 [MIT](LICENSE)
+
+## OpenAPI sources
+
+A command document can import OpenAPI 3.0/3.1 operations alongside handwritten commands. See [the Controllr sample](samples/openapi/README.md).
+
+```yaml
+sources:
+  service:
+    type: openapi
+    path: ./api/openapi.yaml
+    endpoint: "{$config.api}"
+    tags: [Clients]
+    hints:
+      listClients:
+        pattern: [client, list]
+```
+
+`path` accepts a local YAML/JSON file or an HTTP(S) URL. Local paths are relative to the declaring wrapper, including when that wrapper is imported. References are resolved relative to the file or URL that contains them. `refs: { local: false, remote: false }` disables external reference locations; internal JSON Pointers remain available. Remote specifications cannot import local files. Specification fetches carry no API authentication headers and do not follow redirects.
+
+If `endpoint` is omitted, the first specification server is used with its variable defaults expanded. Use `configSchema` to declare writable endpoint/authentication settings. `tags`, operation-ID `hints` (`pattern`, `group`, `summary`, `skip`), `prefix`, and `mcp: true` control the imported surface. Without operation IDs, hint keys are the lowercase method plus dotted path, such as `post.controllrctl.client.list`. Imported MCP exposure is off by default.
+
+Only supported input schemas are advertised. JSON and `application/x-www-form-urlencoded` object request bodies are supported; array/object field values use JSON text at the CLI. Multipart uploads, unresolved input references, union/composition schemas, and header/cookie input parameters are reported as unsupported rather than silently flattened. The loader's `sources --json` command lists loaded files, reference diagnostics, and omitted operations.
+
+Handwritten HTTP steps can select `contentType: application/x-www-form-urlencoded` as well. Authentication belongs to an OpenAPI source: Basic uses `username`/`password` templates; cookie mode uses a `login` object with `path`, `body`, and optional `contentType` (form encoding by default). Authentication credentials are evaluated only for requests. There is no automatic login or retry of failed writes.
+
+Generated OpenAPI command words always follow the API path (`POST /invoice_ctl/bank/list` becomes `invoice-ctl bank list`). Tags are display headings only, even when translated; operation IDs remain identifiers. Only explicit `hints.pattern` or `x-cli.pattern` overrides command spelling. Hints can use operation IDs or method-plus-dotted-path keys, so path hints remain stable when a spec adds operation IDs. The actual HTTP path is preserved.
+
+Operations that share a generated command path require explicit naming hints to distinguish them; the importer reports collisions instead of picking one HTTP method.

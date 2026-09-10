@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { ConfigurationError } from "facio";
-import { parseYaml } from "./yaml.js";
+import { parseYaml } from "facio/yaml";
 
 /**
  * A document from disk: read it, compose it, and load what it says about the environment.
@@ -73,6 +73,13 @@ function compose(
 
   const own = parseDocument(read(path), path);
   const directory = dirname(path);
+  // A source belongs to the document that declares it, not the final importing wrapper.
+  if (isPlain(own["sources"])) {
+    own["sources"] = Object.fromEntries(Object.entries(own["sources"]).map(([name, value]) => {
+      if (!isPlain(value) || typeof value["path"] !== "string" || /^https?:/u.test(value["path"])) return [name, value];
+      return [name, { ...value, path: resolve(directory, value["path"]) }];
+    }));
+  }
   let merged: Record<string, unknown> = {};
 
   for (const entry of entriesOf(own["imports"], `${path}: imports`)) {
@@ -105,7 +112,7 @@ function readOptional(
 
 /** `.json` is JSON, anything else is the YAML subset. The two produce the same data. */
 export function parseDocument(text: string, path: string): Record<string, unknown> {
-  const value = path.endsWith(".json") ? JSON.parse(text) as unknown : parseYaml(text);
+  const value = path.endsWith(".json") ? JSON.parse(text) as unknown : parseYaml(text, { source: path });
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new ConfigurationError(`${path} is not a mapping, so it is not a command document`);
   }
@@ -147,7 +154,7 @@ function merge(base: Record<string, unknown>, over: Record<string, unknown>): Re
       out[key] = mergeDefaults(base[key], value);
       continue;
     }
-    out[key] = key === "config" || key === "commands" || key === "configSchema"
+    out[key] = key === "config" || key === "commands" || key === "configSchema" || key === "sources"
       ? mergeMaps(base[key], value, key === "config")
       : value;
   }
