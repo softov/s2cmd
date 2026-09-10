@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "depot": {
+      "command": "node",
+      "args": ["dist/s2cmd.js", "--document", "samples/depot/depot.yaml", "mcp", "serve"]
+    }
+  }
+}

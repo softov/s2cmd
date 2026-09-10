@@ -5,6 +5,7 @@ import { Program, renderTable, runEntry } from "facio/cli";
 import { configGlobal, resolveConfig, type ResolvedConfig } from "facio/config";
 import { reference } from "facio/docs";
 import { listTools } from "facio/mcp";
+import { serveStdio } from "facio/mcp/stdio";
 import { commandsFromDocument, configOf, programOf } from "./document.js";
 import { loadDocument, parseDocument } from "./load.js";
 import { configSchemaOf, setConfig } from "./config.js";
@@ -158,6 +159,42 @@ async function build(argv: readonly string[]): Promise<Program> {
     surfaces: { cli: { pattern: ["mcp", "tools"] } },
     ...meta,
     run: () => output(listTools(registry)),
+  });
+
+  /*
+   * The same list, spoken rather than printed.
+   *
+   * `mcp tools` was always the honest half of a promise: the document says
+   * which commands are tools and this could show them, but an agent cannot
+   * read a printout. `facio/mcp/stdio` closes it without costing the document
+   * a dependency, which matters here more than anywhere - the whole point of a
+   * command document is that a YAML file and a Node runtime are the only
+   * things a program needs.
+   *
+   * The refusal in `document.ts` is what makes this safe to offer at all: a
+   * command holding an `exec` step is not published unless it said
+   * `allowRemoteExec: true`, so serving a document cannot quietly hand an agent
+   * a shell.
+   */
+  registry.action({
+    id: "mcp.serve",
+    summary: "Serve this document's MCP tools on stdin and stdout",
+    description: "Speaks MCP over stdio, for an agent that launches this command as a subprocess. Only commands declaring surfaces.mcp are served, and stdout carries nothing but protocol messages.",
+    surfaces: { cli: { pattern: ["mcp", "serve"] } },
+    ...meta,
+    run: async () => {
+      const server = serveStdio(registry, {
+        name: program.name,
+        version: program.version,
+        ...(program.description === undefined ? {} : { instructions: program.description }),
+        // Stdout belongs to the protocol, so anything a person should read goes the other way.
+        onDiagnostic: (error) => {
+          process.stderr.write(`${program.name}: ${error instanceof Error ? error.message : String(error)}\n`);
+        },
+      });
+      await server.closed;
+      return output(null, "");
+    },
   });
 
   registry.action({

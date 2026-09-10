@@ -50,6 +50,9 @@ curl -X POST localhost:8801/pets -d '{"name":"Ada","age":99}'
 
 # the tools an agent would receive
 s2cmd --document pets.yaml mcp tools
+
+# the same tools, served to an agent that launched this as a subprocess
+s2cmd --document pets.yaml mcp serve
 ```
 
 A command that runs a *process* is the same shape, with one more word — see [below](#a-shell-step-does-not-become-an-agent-tool-by-accident) for why that word is required:
@@ -109,6 +112,34 @@ If MCP came for free, a YAML file would be a set of tools an agent can call and 
 ```
 
 Separate from `surfaces`, refused loudly rather than dropped quietly, and it travels: a command whose only step calls another command that runs a process is a command that runs a process. `http` and `internal` steps default the normal way.
+
+## An MCP server, from the same file
+
+`mcp tools` prints the descriptors. `mcp serve` speaks them: it is a complete MCP server over stdio, which is how an agent launches a command line and talks to it.
+
+```json
+{
+  "mcpServers": {
+    "pets": {
+      "command": "s2cmd",
+      "args": ["--document", "pets.yaml", "mcp", "serve"]
+    }
+  }
+}
+```
+
+That is the whole setup. No SDK and no new dependency: it comes from [`facio/mcp/stdio`](https://github.com/softov/facio/blob/main/src/mcp/stdio.ts), which is written against the protocol directly for the same reason the YAML reader is written against a YAML subset. `s2cmd` still installs exactly one package.
+
+Only commands declaring `surfaces.mcp` are served, and the `allowRemoteExec` rule above still applies, so serving a document cannot hand an agent a shell it did not explicitly grant. Stdout carries protocol messages and nothing else; anything a person should read goes to stderr.
+
+This repository ships a ready configuration in [`.mcp.json`](.mcp.json) for the depot sample. It needs the petshop service the sample calls:
+
+```sh
+npm --prefix ../facio run examples
+node ../facio/examples/dist/petshop/cli.js serve --port 8799 &
+```
+
+The tools an agent then sees are `pet_list` and `pet_add`, with the document's own bounds enforced: `pet_add` with `breed: poodle` comes back as a readable tool error naming the three breeds the document allows.
 
 ## Composing documents
 
