@@ -47,7 +47,7 @@ jobs:
         working-directory: s2cmd
         run: |
           set -eu
-          for document in samples/depot/depot.yaml samples/gitlab/gitlab.yaml; do
+          for document in samples/depot/depot.yaml samples/openapi/s2cmd.yaml samples/gitlab/gitlab.yaml; do
             echo "== $document"
             node dist/s2cmd.js --document "$document" --help > /dev/null
             node dist/s2cmd.js --document "$document" mcp tools > /dev/null

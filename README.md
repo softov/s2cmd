@@ -217,12 +217,16 @@ run:
 
 ## Samples
 
-| Sample                                     | Shows                                                        |
-| ------------------------------------------ | ------------------------------------------------------------ |
-| [`depot`](samples/depot/depot.yaml)        | Every executor, imports, environment files, all three surfaces |
-| [`gitlab`](samples/gitlab/README.md)       | A real REST API as commands, with writable configuration      |
+| Sample                                           | Shows                                                          |
+| ------------------------------------------------ | -------------------------------------------------------------- |
+| [`depot`](samples/depot/depot.yaml)              | Every executor, imports, environment files, all three surfaces |
+| [`openapi`](samples/openapi/README.md)           | The official Petstore specification imported, with a stub      |
+| [`controllrapi`](samples/controllrapi/README.md) | A real, many-operation document with cookie and basic auth     |
+| [`gitlab`](samples/gitlab/README.md)             | A real REST API as commands, with writable configuration       |
 
 The depot sample's pet commands call a stub service that ships beside the document, on port 8799: `node samples/depot/petshop.mjs &`. It keeps a list in memory and goes away with the process, which is enough for the document's `http` executor to be exercised end to end without anything checked out beside this repository.
+
+The openapi sample is self-contained the same way: `node samples/openapi/petstore.mjs &` answers the operations imported from the specification that ships beside it. The controllrapi sample is the other kind — a wrapper over a specification kept in your own API documentation checkout.
 
 ## Development
 
@@ -261,7 +265,7 @@ npm run dev -- --document samples/depot/depot.yaml --help
 
 ## OpenAPI sources
 
-A command document can import OpenAPI 3.0/3.1 operations alongside handwritten commands. See [the Controllr sample](samples/openapi/README.md).
+A command document can import OpenAPI 3.0/3.1 operations alongside handwritten commands. [The openapi sample](samples/openapi/README.md) imports the official Petstore specification and ships a stub for it; [the controllrapi sample](samples/controllrapi/README.md) wraps a real, many-operation document with cookie and basic authentication.
 
 ```yaml
 sources:

@@ -1,49 +1,71 @@
-# Controllr OpenAPI sample
+# Swagger Petstore OpenAPI sample
 
-This wrapper loads the local Controllr OpenAPI 3.1 specification and its referenced files. Keep `path` pointed at your API documentation checkout. The sample contains no credentials.
+A self-contained OpenAPI sample: `openapi.yaml` is the official [Swagger
+Petstore][spec] OpenAPI 3.0 specification, `s2cmd.yaml` imports every operation
+it supports, and `petstore.mjs` is a stub that answers them. Nothing outside
+this directory and a Node runtime is needed.
 
-From `/github/s2cmd`, show the generated CLI:
+[spec]: https://github.com/swagger-api/swagger-petstore/blob/master/src/main/resources/openapi.yaml
 
-```sh
-npm run dev -- --document samples/openapi/openapi.yaml
-```
-
-No API call is made by help, `sources`, or configuration commands. Inspect unsupported operations and reference problems with:
-
-```sh
-npm run dev -- --document samples/openapi/openapi.yaml sources --json
-```
-
-Choose your real endpoint; check the current sample default before using it:
+From the repository root, start the stub and show the generated CLI:
 
 ```sh
-npm run dev -- --document samples/openapi/openapi.yaml config set api https://your-host:8443
+node samples/openapi/petstore.mjs &
+node dist/s2cmd.js --document samples/openapi/s2cmd.yaml --help
 ```
 
-With no higher-priority config file active, this creates `.controllr.json` in the current directory. `config` shows the effective values and their source. The `api` value includes the server URL's base path, if any; do not add an OpenAPI documentation path.
+The stub keeps its pets, orders and users in memory and goes away with the
+process. No API call is made by `--help`, `sources`, or configuration commands.
 
-For cookie authentication, export `CONTROLLR_USERNAME` and `CONTROLLR_PASSWORD` in your shell, then:
+`openapi.yaml` answers more than one method on most paths — `/pet` is `POST` and
+`PUT`, `/pet/{petId}` is `GET` and `POST` — and one command name cannot be both.
+The importer refuses the pair as ambiguous rather than picking a method, so
+`s2cmd.yaml` spells every one out with `hints.pattern`; a hint replaces the
+whole pattern, path parameters included. Four operations remain unsupported and
+are reported, not silently dropped:
 
 ```sh
-npm run dev -- --document samples/openapi/openapi.yaml auth login
-npm run dev -- --document samples/openapi/openapi.yaml auth status
-npm run dev -- --document samples/openapi/openapi.yaml controllrctl client list --limit 10 --json
-npm run dev -- --document samples/openapi/openapi.yaml auth logout
+node dist/s2cmd.js --document samples/openapi/s2cmd.yaml sources --json
 ```
 
-Login posts form-encoded credentials to `/login`. Only the successful login's cookies are persisted, with private file permissions, below `$XDG_STATE_HOME/s2cmd` or `~/.local/state/s2cmd`. The session file is keyed by source and complete endpoint URL. Changing `api` selects a different session. `auth status` reports session metadata without printing cookies; logout removes the local session without calling the server.
+```text
+deletePet                  DELETE /pet/{petId}          header parameter
+uploadFile                 POST   /pet/{petId}/uploadImage  octet-stream body
+createUsersWithListInput   POST   /user/createWithList  array request body
+updateUser                 PUT    /user/{username}      input names overlap
+```
 
-For Basic authentication, use the same environment variables and select:
+The imported operations run against the stub, which listens on the endpoint the
+document defaults to:
 
 ```sh
-npm run dev -- --document samples/openapi/openapi.yaml config set auth basic
-npm run dev -- --document samples/openapi/openapi.yaml controllrctl client list --limit 10 --json
+node dist/s2cmd.js --document samples/openapi/s2cmd.yaml pet list --status available
+node dist/s2cmd.js --document samples/openapi/s2cmd.yaml pet add --name Zoe --photo-urls '["https://example.test/zoe.png"]'
+node dist/s2cmd.js --document samples/openapi/s2cmd.yaml pet get 1
+node dist/s2cmd.js --document samples/openapi/s2cmd.yaml pet tags --tags '["friendly"]'
+node dist/s2cmd.js --document samples/openapi/s2cmd.yaml store inventory
+node dist/s2cmd.js --document samples/openapi/s2cmd.yaml store order place --pet-id 1 --quantity 2
+node dist/s2cmd.js --document samples/openapi/s2cmd.yaml user login --username tester --password secret
 ```
 
-Basic authentication sends credentials on each request and does not need `auth login`. `config set auth cookie` switches back. An explicitly exported `CONTROLLR_COOKIE` overrides the managed Cookie header; unset it to use saved login cookies. `config set auth none` disables the managed authentication provider; explicitly supplied headers still apply.
+Arrays and objects are JSON text: `--photo-urls '["…"]'`, `--tags '["friendly"]'`,
+`--category '{"id":1,"name":"dog"}'`.
 
-`controllrctl client list` follows the specification's `/controllrctl/client/list` path. Other commands use their API path segments as well; see the generated help. Multi-source wrappers can configure `prefix` to avoid command-name collisions.
+To use the live public API instead of the stub, point `api` at the server in the
+specification:
 
-The supplied specification has missing referenced files, a misspelled input type, and multipart upload operations. Those operations are reported and omitted. Multipart uploads are not implemented. No API operations are run automatically while loading the specification. A spec's `security: []` marks an operation public and suppresses the source's authentication headers for that operation.
+```sh
+node dist/s2cmd.js --document samples/openapi/s2cmd.yaml config set api https://petstore3.swagger.io/api/v3
+```
 
-Command names use API path segments; HTTP methods remain in request metadata. For example, the `Cobranças Observação` heading contains `invoice-ctl observation create`; the heading is not part of the command.
+With no higher-priority config file active, that creates `.petstore.json` in the
+current directory; `config` shows the effective values and their source.
+
+## The specification
+
+`openapi.yaml` is the upstream Swagger Petstore definition, unmodified, and is
+licensed [Apache 2.0][license] by SmartBear Software. It is committed here so
+the sample loads with no checkout beside this repository; update it from
+[swagger-api/swagger-petstore][spec] rather than editing it.
+
+[license]: https://www.apache.org/licenses/LICENSE-2.0.html

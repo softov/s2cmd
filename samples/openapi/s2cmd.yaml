@@ -1,0 +1,43 @@
+name: petstore
+
+# The official Swagger Petstore specification, shipped beside this document so
+# the sample is self contained: `openapi.yaml` is a real OpenAPI 3.0 spec and
+# `petstore.mjs` is a stub that answers the operations imported from it.
+#
+#   node samples/openapi/petstore.mjs &
+#   node dist/s2cmd.js --document samples/openapi/s2cmd.yaml pet list
+
+sources:
+  petstore:
+    type: openapi
+    path: ./openapi.yaml
+    endpoint: "{$config.api}"
+    # Most paths here answer more than one method, and one command name cannot
+    # be both: /pet is POST and PUT, /pet/{petId} is GET and POST. Without a
+    # hint the importer reports the pair as ambiguous and omits both rather than
+    # picking one, which is why every pair below is spelled out.
+    hints:
+      addPet: { pattern: [pet, add] }
+      updatePet: { pattern: [pet, update] }
+      findPetsByStatus: { pattern: [pet, list] }
+      findPetsByTags: { pattern: [pet, tags] }
+      # A hint replaces the whole pattern, path parameters included: without
+      # the ":petId" the operation would have no way to name the pet.
+      getPetById: { pattern: [pet, get, ":petId"] }
+      updatePetWithForm: { pattern: [pet, edit, ":petId"] }
+      getInventory: { pattern: [store, inventory] }
+      placeOrder: { pattern: [store, order, place] }
+      getOrderById: { pattern: [store, order, get, ":orderId"] }
+      deleteOrder: { pattern: [store, order, delete, ":orderId"] }
+      createUser: { pattern: [user, add] }
+      getUserByName: { pattern: [user, get, ":username"] }
+      deleteUser: { pattern: [user, delete, ":username"] }
+      loginUser: { pattern: [user, login] }
+      logoutUser: { pattern: [user, logout] }
+
+configSchema:
+  api:
+    type: string
+    format: uri
+    description: Where the Petstore API answers
+    default: http://127.0.0.1:8793
