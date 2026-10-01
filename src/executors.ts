@@ -2,12 +2,12 @@ import { spawn } from "node:child_process";
 import {
   canonicalFromObject,
   compact,
-  FacioError,
+  CofoldError,
   ConfigurationError,
   type Runner,
   type Surface,
-} from "facio";
-import { httpTransport, type HttpBinding } from "facio/remote";
+} from "@cofold/commands";
+import { httpTransport, type HttpBinding } from "@cofold/remote";
 import {
   checkArgument,
   resolveEntry,
@@ -253,7 +253,7 @@ interface ExecStep {
 }
 
 /** A step whose process answered with something other than success. */
-export class StepError extends FacioError {
+export class StepError extends CofoldError {
   public readonly code: number | null;
 
   public constructor(message: string, code: number | null) {

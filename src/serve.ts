@@ -1,6 +1,6 @@
 import { createServer, type Server } from "node:http";
-import { canonicalFromObject, type Runner } from "facio";
-import { manifestFrom, type ProgramManifest } from "facio/remote";
+import { canonicalFromObject, type Runner } from "@cofold/commands";
+import { manifestFrom, type ProgramManifest } from "@cofold/remote";
 
 /**
  * The registry, answered over HTTP.

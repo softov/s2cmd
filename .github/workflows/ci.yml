@@ -21,31 +21,10 @@ jobs:
         with:
           path: s2cmd
 
-      # `package.json` depends on `file:../facio`, so the sibling checkout is
-      # part of the build rather than a convenience. Until that becomes a
-      # published version, CI has to reproduce the layout a developer has.
-      - uses: actions/checkout@v7
-        with:
-          repository: softov/facio
-          ref: main
-          path: facio
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11
-
       - uses: actions/setup-node@v7
         with:
           # The `engines` field, and the version the tests are written against.
           node-version: 22
-
-      # facio is a pnpm repository and this one is an npm repository, so each
-      # is installed the way its own lockfile says.
-      - name: Build facio
-        working-directory: facio
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm run build
 
       # `npm ci` rather than `npm install`, so a lockfile that does not match
       # package.json fails here rather than resolving to something nobody

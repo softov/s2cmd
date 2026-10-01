@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
-import { ConfigurationError, output, type Command, type Registry } from "facio";
-import { commandsFrom, manifestFromOpenApi, type OpenApiDocument, type OpenApiOptions, type ProgramManifest } from "facio/remote";
-import { loadYaml } from "facio/yaml";
+import { ConfigurationError, output, type Command, type Registry } from "@cofold/commands";
+import { commandsFrom, manifestFromOpenApi, type OpenApiDocument, type OpenApiOptions, type ProgramManifest } from "@cofold/remote";
+import { loadYaml } from "@cofold/yaml";
 import { resolveValue, type Argument, type Scope } from "./values.js";
 import { ApiSession } from "./auth.js";
 

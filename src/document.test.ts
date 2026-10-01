@@ -8,9 +8,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { createRegistry, type Registry } from "facio";
+import { createRegistry, type Registry } from "@cofold/commands";
 import { commandsFromDocument, type ReadOptions } from "./document.js";
-import { parseYaml } from "facio/yaml";
+import { parseYaml } from "@cofold/yaml";
 
 function read(text: string, options: ReadOptions = {}): ReturnType<typeof commandsFromDocument> {
   return commandsFromDocument(parseYaml(text), options);

@@ -1,8 +1,8 @@
 import { lstatSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
-import { ArgumentError, ConfigurationError, check, decode, type JsonSchema } from "facio";
-import type { ResolvedConfig } from "facio/config";
+import { ArgumentError, ConfigurationError, check, decode, type JsonSchema } from "@cofold/commands";
+import type { ResolvedConfig } from "@cofold/config";
 import { parseDocument } from "./load.js";
 
 export type ConfigSchema = Record<string, JsonSchema>;
@@ -84,7 +84,7 @@ export function configDefaults(schema: ConfigSchema): Record<string, unknown> {
 
 export function validateConfigValue(value: unknown, schema: JsonSchema, label: string): void {
   check(value, schema, label);
-  // facio checks types and bounds; URI validation is specific to this setting contract.
+  // cofold checks types and bounds; URI validation is specific to this setting contract.
   if (schema.format === "uri" && (typeof value !== "string" || !URL.canParse(value) || /\s/u.test(value))) {
     throw new ArgumentError(`${label} must be an absolute URI`);
   }

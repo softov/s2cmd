@@ -1,4 +1,4 @@
-import { ArgumentError } from "facio";
+import { ArgumentError } from "@cofold/commands";
 
 /**
  * What a document may put where a value goes, and how little that is.

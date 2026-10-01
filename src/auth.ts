@@ -2,8 +2,8 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { ConfigurationError } from "facio";
-import { CookieJar, httpTransport, type HttpBinding, type Transport, type StoredCookie } from "facio/remote";
+import { ConfigurationError } from "@cofold/commands";
+import { CookieJar, httpTransport, type HttpBinding, type Transport, type StoredCookie } from "@cofold/remote";
 import { resolveEntry, resolveValue, type Argument, type Scope } from "./values.js";
 
 export interface SessionOptions {

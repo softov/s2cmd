@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 import { pathToFileURL } from "node:url";
-import { createRegistry, output, FacioError, type Command, type Registry } from "facio";
-import { Program, renderTable, runEntry } from "facio/cli";
-import { configGlobal, resolveConfig, type ResolvedConfig } from "facio/config";
-import { reference } from "facio/docs";
-import { listTools } from "facio/mcp";
-import { serveStdio } from "facio/mcp/stdio";
+import { createRegistry, output, CofoldError, type Command, type Registry } from "@cofold/commands";
+import { Program, renderTable, runEntry } from "@cofold/terminal";
+import { configGlobal, resolveConfig, type ResolvedConfig } from "@cofold/config";
+import { reference } from "@cofold/commands/docs";
+import { listTools } from "@cofold/mcp";
+import { serveStdio } from "@cofold/mcp/stdio";
 import { commandsFromDocument, configOf, programOf } from "./document.js";
 import { loadDocument, parseDocument } from "./load.js";
 import { configSchemaOf, setConfig } from "./config.js";
@@ -96,7 +96,7 @@ function attempt<T>(read: () => T): T {
     return read();
   } catch (error: unknown) {
     process.stderr.write(`s2cmd: ${error instanceof Error ? error.message : "the document could not be read"}\n`);
-    process.exit(error instanceof FacioError ? error.exitCode : 3);
+    process.exit(error instanceof CofoldError ? error.exitCode : 3);
   }
 }
 
@@ -128,6 +128,9 @@ async function build(argv: readonly string[]): Promise<Program> {
   const config = attempt((): ResolvedConfig => resolveConfig({
     name: program.name,
     base: configOf(loaded.document),
+    // The file `config set` writes when no higher layer is active, found upwards
+    // so a command run from a subdirectory still lands in the project's own.
+    project: `.${program.name}.json`,
     parse: parseDocument,
     extensions: [".yaml", ".yml", ".json"],
     ...(readGlobal(argv, "--config") === undefined ? {} : { path: readGlobal(argv, "--config")! }),
@@ -166,7 +169,7 @@ async function build(argv: readonly string[]): Promise<Program> {
    *
    * `mcp tools` was always the honest half of a promise: the document says
    * which commands are tools and this could show them, but an agent cannot
-   * read a printout. `facio/mcp/stdio` closes it without costing the document
+   * read a printout. `@cofold/mcp/stdio` closes it without costing the document
    * a dependency, which matters here more than anywhere - the whole point of a
    * command document is that a YAML file and a Node runtime are the only
    * things a program needs.

@@ -10,9 +10,9 @@
 
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { createRegistry, canonicalFromCli, canonicalFromObject } from "facio";
-import { listTools } from "facio/mcp";
-import { manifestFrom } from "facio/remote";
+import { createRegistry, canonicalFromCli, canonicalFromObject } from "@cofold/commands";
+import { listTools } from "@cofold/mcp";
+import { manifestFrom } from "@cofold/remote";
 import { commandsFromDocument } from "./document.js";
 import { registryFor } from "./s2cmd.js";
 import { loadDocument } from "./load.js";

@@ -1,5 +1,4 @@
 import {
-  assertSupported,
   commandFor,
   compact,
   output,
@@ -11,9 +10,10 @@ import {
   type JsonSchema,
   type Output,
   type Surfaces,
-} from "facio";
+} from "@cofold/commands";
+import { assertSupportedSchema } from "@cofold/sdk";
 import { configDefaults, configSchemaOf } from "./config.js";
-import type { HttpBinding } from "facio/remote";
+import type { HttpBinding } from "@cofold/remote";
 import { defaultExecutors, type Executor, type ExecutorOptions, type StepResult } from "./executors.js";
 import type { Scope } from "./values.js";
 
@@ -130,7 +130,7 @@ function fieldFrom(raw: unknown, where: string): Field {
       Object.entries(asMap(held["properties"], `${where}.properties`))
         .map(([name, property]) => [name, schemaFrom(property, `${where}.properties.${name}`)]));
   }
-  assertSupported(schema as JsonSchema, where);
+  assertSupportedSchema({ schema: schema as JsonSchema, path: where });
 
   const field = schema as Field;
   if (held["env"] !== undefined) field.env = asText(held["env"], `${where}.env`);

@@ -6,10 +6,10 @@
 # adds is `run`: named executors and an ordered list of steps, because a file
 # cannot hold a function.
 #
-# The `pet` commands call the petshop example, which is the HTTP server this
-# repository already ships, so the whole document runs end to end:
+# The `pet` commands call the stub service beside this file, which is the HTTP
+# server this repository already ships, so the whole document runs end to end:
 #
-#   node ../facio/examples/dist/petshop/cli.js serve --port 8799 &
+#   node samples/depot/petshop.mjs &
 #   node dist/s2cmd.js --document samples/depot/depot.yaml pet list
 
 name: depot

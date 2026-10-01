@@ -8,7 +8,7 @@
 
 ## What it is
 
-A YAML or JSON document declares commands: their input schemas, which surfaces they appear on, and what they run. `s2cmd` reads it and hands the whole thing to [`facio`](https://github.com/softov/facio), which is where the surfaces come from.
+A YAML or JSON document declares commands: their input schemas, which surfaces they appear on, and what they run. `s2cmd` reads it and hands the whole thing to [`cofold`](https://github.com/softov/cofold), which is where the surfaces come from.
 
 Nobody writes a handler, and nobody implements a surface.
 
@@ -74,7 +74,7 @@ A command that runs a *process* is the same shape, with one more word — see [b
             - { when: force, value: "--force" }
 ```
 
-Everything a document-defined command needs already existed in `facio` except one thing. `run` is a function, and a file cannot hold one, so execution is stated as data: named executors and an ordered list of steps. `input` is the same map of JSON Schema `registry.action` takes and `surfaces` is the same declaration, so the terminal, an HTTP request and an MCP tool call are held to one rule exactly as they are in code.
+Everything a document-defined command needs already existed in `cofold` except one thing. `run` is a function, and a file cannot hold one, so execution is stated as data: named executors and an ordered list of steps. `input` is the same map of JSON Schema `registry.action` takes and `surfaces` is the same declaration, so the terminal, an HTTP request and an MCP tool call are held to one rule exactly as they are in code.
 
 ## Install
 
@@ -86,7 +86,7 @@ Node.js 22 or newer.
 
 ## YAML parser
 
-YAML parsing comes from the reusable `facio/yaml` subpath. The current parser supports a documented subset and reports the source file and line on syntax errors. s2cmd owns document composition and command validation.
+YAML parsing comes from the reusable [`@cofold/yaml`](https://github.com/softov/cofold/tree/main/packages/yaml) package. The current parser supports a documented subset and reports the source file and line on syntax errors. s2cmd owns document composition and command validation.
 
 ## Executors
 
@@ -128,15 +128,14 @@ Separate from `surfaces`, refused loudly rather than dropped quietly, and it tra
 }
 ```
 
-That is the whole setup. No SDK and no new dependency: it comes from [`facio/mcp/stdio`](https://github.com/softov/facio/blob/main/src/mcp/stdio.ts), which is written against the protocol directly for the same reason the YAML reader is written against a YAML subset. `s2cmd` still installs exactly one package.
+That is the whole setup. No SDK and no new dependency: it comes from [`@cofold/mcp`](https://github.com/softov/cofold/blob/main/packages/mcp/src/stdio.ts), whose stdio server is written against the protocol directly for the same reason the YAML reader is written against a YAML subset. Every package `s2cmd` installs comes from `cofold`, and between them they pull in nothing from outside it.
 
 Only commands declaring `surfaces.mcp` are served, and the `allowRemoteExec` rule above still applies, so serving a document cannot hand an agent a shell it did not explicitly grant. Stdout carries protocol messages and nothing else; anything a person should read goes to stderr.
 
 This repository ships a ready configuration in [`.mcp.json`](.mcp.json) for the depot sample. It needs the petshop service the sample calls:
 
 ```sh
-npm --prefix ../facio run examples
-node ../facio/examples/dist/petshop/cli.js serve --port 8799 &
+node samples/depot/petshop.mjs &
 ```
 
 The tools an agent then sees are `pet_list` and `pet_add`, with the document's own bounds enforced: `pet_add` with `breed: poodle` comes back as a readable tool error naming the three breeds the document allows.
@@ -147,7 +146,7 @@ The tools an agent then sees are `pet_list` and `pet_add`, with the document's o
 
 ## YAML, without a dependency
 
-`facio` has no dependencies and a command document is not worth one, so the included reader covers the subset a document is written in and **refuses the rest by name** — anchors, aliases, custom tags, merge keys, multiple documents. A hand-written YAML parser is a liability exactly to the extent that it accepts a document and reads it differently from a real one, and refusing is how that is bounded. Nothing downstream reads YAML: the reader takes parsed data, so a full parser is a one-line substitution for anybody who wants one, and JSON is always available for a document that needs what the subset refuses.
+`@cofold/yaml` has no dependencies and a command document is not worth one, so the included reader covers the subset a document is written in and **refuses the rest by name** — anchors, aliases, custom tags, merge keys, multiple documents. A hand-written YAML parser is a liability exactly to the extent that it accepts a document and reads it differently from a real one, and refusing is how that is bounded. Nothing downstream reads YAML: the reader takes parsed data, so a full parser is a one-line substitution for anybody who wants one, and JSON is always available for a document that needs what the subset refuses.
 
 ## Writable configuration
 
@@ -223,14 +222,13 @@ run:
 | [`depot`](samples/depot/depot.yaml)        | Every executor, imports, environment files, all three surfaces |
 | [`gitlab`](samples/gitlab/README.md)       | A real REST API as commands, with writable configuration      |
 
-The depot sample's pet commands call the `facio` petshop example on port 8799. From a `facio` checkout: `npm run examples && node examples/dist/petshop/cli.js serve --port 8799`.
+The depot sample's pet commands call a stub service that ships beside the document, on port 8799: `node samples/depot/petshop.mjs &`. It keeps a list in memory and goes away with the process, which is enough for the document's `http` executor to be exercised end to end without anything checked out beside this repository.
 
 ## Development
 
-The `facio` dependency currently uses the sibling checkout at `../facio`.
+Every dependency is a published `cofold` package, so a checkout of this repository is enough.
 
 ```sh
-npm --prefix ../facio run build
 npm install
 npm run check
 
@@ -247,15 +245,15 @@ npm run dev -- --document samples/depot/depot.yaml --help
 
 ## Packaging
 
-`npm pack` builds the CLI and packages the compiled files and samples. Before publishing for use outside this checkout layout, replace the local `facio` dependency with the corresponding published version.
+`npm pack` builds the CLI and packages the compiled files and samples. Nothing about the published package depends on this checkout's layout: every dependency is a published `cofold` package with no dependency of its own.
 
 ## Documentation
 
-`s2cmd` is a front end for [`facio`](https://github.com/softov/facio), whose manual covers everything a surface does with a command once it has been declared:
+`s2cmd` is a front end for [`cofold`](https://github.com/softov/cofold), whose manual covers everything a surface does with a command once it has been declared:
 
-* [Getting started](https://github.com/softov/facio/blob/main/docs/01-getting-started.md)
-* [Actions](https://github.com/softov/facio/blob/main/docs/02-actions.md)
-* [Configuration](https://github.com/softov/facio/blob/main/docs/10-config.md)
+* [Getting started](https://github.com/softov/cofold/blob/main/docs/commands/01-getting-started.md)
+* [Actions](https://github.com/softov/cofold/blob/main/docs/commands/02-actions.md)
+* [Configuration](https://github.com/softov/cofold/blob/main/docs/commands/10-config.md)
 
 ## License
 

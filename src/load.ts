@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, isAbsolute, resolve } from "node:path";
-import { ConfigurationError } from "facio";
-import { parseYaml } from "facio/yaml";
+import { ConfigurationError } from "@cofold/commands";
+import { parseYaml } from "@cofold/yaml";
 
 /**
  * A document from disk: read it, compose it, and load what it says about the environment.

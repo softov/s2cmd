@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { createRegistry, type Output, type Registry } from "facio";
+import { createRegistry, type Output, type Registry } from "@cofold/commands";
 import { commandsFromDocument, type ReadOptions } from "./document.js";
 
 function registryOf(document: unknown, options: ReadOptions = {}): Registry<object> {

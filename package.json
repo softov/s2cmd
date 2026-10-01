@@ -18,7 +18,7 @@
     "rest",
     "api-client",
     "openapi",
-    "facio"
+    "cofold"
   ],
   "author": "Luiz Fernando Softov <lfs@softov.dev>",
   "license": "MIT",
@@ -58,7 +58,13 @@
     "typecheck": "tsc -p tsconfig.test.json"
   },
   "dependencies": {
-    "facio": "file:../facio"
+    "@cofold/commands": "^0.2.2",
+    "@cofold/config": "^0.3.0",
+    "@cofold/mcp": "^0.2.0",
+    "@cofold/remote": "^0.4.0",
+    "@cofold/sdk": "^0.2.0",
+    "@cofold/terminal": "^0.2.0",
+    "@cofold/yaml": "^0.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",

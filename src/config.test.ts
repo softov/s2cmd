@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it } from "vitest";
-import { resolveConfig } from "facio/config";
+import { resolveConfig } from "@cofold/config";
 import { configOf, commandsFromDocument } from "./document.js";
 import { parseDocument } from "./load.js";
 import { configSchemaOf, parseConfigValue, setConfig } from "./config.js";
@@ -28,7 +28,8 @@ afterEach(() => { for (const path of directories.splice(0)) rmSync(path, { recur
 
 function resolve(cwd: string, path?: string) {
   return resolveConfig({ name: "example", cwd, home: cwd, env: {}, parse: parseDocument,
-    extensions: [".yaml", ".yml", ".json"], ...(path === undefined ? {} : { path }) });
+    project: ".example.json", extensions: [".yaml", ".yml", ".json"],
+    ...(path === undefined ? {} : { path }) });
 }
 
 describe("config schema", () => {
