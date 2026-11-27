@@ -1,0 +1,123 @@
+name: Release
+
+# A pushed tag is the whole gesture: `git tag v0.1.0 && git push origin v0.1.0`.
+# The tag must name the version in package.json.
+on:
+  push:
+    tags: ['v*']
+  # For rehearsing the whole thing without publishing anything.
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Pack and check, but do not publish
+        type: boolean
+        default: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      # What lets npm trade a GitHub OIDC token for a publish. Without it the
+      # publish falls back to looking for a token that is not there.
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          # Trusted publishing needs 22.14 or later, and this is the version
+          # the tests are written against.
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # The npm bundled with Node 22 is 10.x, which has neither trusted
+      # publishing (11.5.1 and later) nor `npm stage` (12).
+      - name: An npm that can do this
+        run: |
+          npm install -g npm@12
+          npm --version
+
+      # A tag that disagrees with the manifest would publish a version nobody
+      # tagged.
+      - name: The tag names the version
+        if: ${{ github.ref_type == 'tag' }}
+        run: |
+          set -eu
+          version=$(node -p "require('./package.json').version")
+          if [ "${GITHUB_REF_NAME}" != "v$version" ]; then
+            echo "The tag is ${GITHUB_REF_NAME}, but package.json says $version."
+            exit 1
+          fi
+
+      - run: npm ci
+
+      # The same checks CI runs. A release is the one build where a green tick
+      # somewhere else is not good enough.
+      - run: timeout 600 npm run check
+
+      - name: Pack
+        run: npm pack --pack-destination "${{ runner.temp }}"
+
+      # Installed from the tarball and started through the bin link npm makes,
+      # which is how a user runs it and not how the tests do. The help text is
+      # required, because a bin that never reaches its entry exits 0 and
+      # prints nothing.
+      - name: The installed command runs
+        run: |
+          set -eu
+          version=$(node -p "require('./package.json').version")
+          consumer="${{ runner.temp }}/consumer"
+          mkdir -p "$consumer"
+          cd "$consumer"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund "${{ runner.temp }}/s2cmd-$version.tgz"
+          for document in samples/depot/depot.yaml samples/openapi/s2cmd.yaml samples/gitlab/gitlab.yaml; do
+            echo "== $document"
+            ./node_modules/.bin/s2cmd --document "node_modules/s2cmd/$document" --help | grep -q '^Usage:'
+          done
+
+      # Staged by npm, not published: nothing is installable until somebody
+      # approves it on the package page.
+      #
+      # `--provenance` attaches a signed attestation tying the tarball to this
+      # commit and this workflow.
+      #
+      # A version already on npm is skipped, and one already staged is left
+      # alone.
+      - name: Stage the release
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          set -u
+          version=$(node -p "require('./package.json').version")
+          if npm view "s2cmd@$version" version > /dev/null 2>&1; then
+            echo "s2cmd@$version is already on npm; nothing to stage."
+            exit 0
+          fi
+          said=$(npm stage publish "${{ runner.temp }}/s2cmd-$version.tgz" --provenance --access public 2>&1) && code=0 || code=$?
+          echo "$said"
+          if [ "$code" = "0" ]; then
+            echo "Staged s2cmd@$version. Approve it on npm. The approve button stays disabled until npm has finished scanning."
+            exit 0
+          fi
+          # E409 answers a version already staged as well as one already
+          # released, which to a re-run is the same: nothing left to do.
+          if printf '%s' "$said" | grep -qE 'E409|previously published|cannot publish over|already (been )?(staged|published)|EPUBLISHCONFLICT'; then
+            echo "s2cmd@$version is already staged; leaving it alone."
+            exit 0
+          fi
+          exit 1
+
+      # A rehearsal over a version already on npm is refused, which is
+      # expected until the manifest is bumped; anything else still fails.
+      - name: What would have been staged
+        if: ${{ inputs.dry_run == true }}
+        run: |
+          set -u
+          version=$(node -p "require('./package.json').version")
+          if npm view "s2cmd@$version" version > /dev/null 2>&1; then
+            echo "s2cmd@$version is already on npm."
+            exit 0
+          fi
+          npm stage publish "${{ runner.temp }}/s2cmd-$version.tgz" --dry-run --access public
