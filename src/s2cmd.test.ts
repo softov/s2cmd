@@ -8,6 +8,11 @@
  * as in `examples/petshop`, with nobody having written a handler.
  */
 
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { createRegistry, canonicalFromCli, canonicalFromObject } from "@cofold/commands";
@@ -163,6 +168,22 @@ describe("the GitLab sample", () => {
       expect(seen[0]!.url.pathname).toBe("/api/v4/projects/123/issues/42/notes");
       expect(seen[0]!.body).toEqual({ body: "Verified" });
       expect(request.body).toEqual({ state_event: "close" });
+    }
+  });
+});
+
+describe("the installed command", () => {
+  it("runs when started through a symlink, as npm installs a bin", () => {
+    const directory = mkdtempSync(join(tmpdir(), "s2cmd-bin-"));
+    try {
+      const bin = join(directory, "s2cmd");
+      symlinkSync(fileURLToPath(new URL("./s2cmd.ts", import.meta.url)), bin);
+      const result = spawnSync(process.execPath, ["--import", createRequire(import.meta.url).resolve("tsx"),
+        bin, "--document", path, "--version"], { encoding: "utf8" });
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toMatch(/\d+\.\d+\.\d+/);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
     }
   });
 });
