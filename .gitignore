@@ -5,5 +5,4 @@ coverage/
 samples/**/*.local.yaml
 samples/**/*.local.env
 samples/gitlab/gitlab.env
-.controllr.json
 .petstore.json
